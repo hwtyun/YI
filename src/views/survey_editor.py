@@ -10,6 +10,7 @@ from src.excel_io import (
     build_overtime_workbook,
     filter_entries_for_team,
     parse_overtime_workbook,
+    sane_default_year,
 )
 from src.store import (
     AccessDenied,
@@ -189,7 +190,7 @@ def _manual_to_entries(frame: pd.DataFrame, work_date: str, team: str, start_seq
 def _render_excel_io(username: str, team: str, survey: dict, existing: list[dict]) -> None:
     survey_id = int(survey["id"])
     can_edit, reason = survey_edit_status(username, survey_id)
-    year = date.fromisoformat(str(survey["period_start"])).year
+    year = sane_default_year(date.fromisoformat(str(survey["period_start"])).year)
     st.markdown("**엑셀**")
     st.caption("엑셀을 올리면 지금 적어 둔 내용이 파일 내용으로 바뀝니다.")
     down_col, up_col = st.columns(2)

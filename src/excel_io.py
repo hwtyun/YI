@@ -26,6 +26,8 @@ from src.hours import parse_work_hours
 
 WEEKDAYS_KR = "월화수목금토일"
 DATE_IN_TEXT = re.compile(r"(?:(\d{4})[./-])?(\d{1,2})[./-](\d{1,2})")
+YEAR_IN_TEXT = re.compile(r"(20\d{2})")
+PLACEHOLDER_YEARS = {1899, 1900, 1904, 2000}
 SKIP_ROW_MARKERS = ("특근인원합계", "식수인원합계", "합계")
 HEADER_TEAM_MARKERS = {"팀", "소속"}
 HEADER_NO_MARKERS = {"no", "n0", "번호", "순번"}
@@ -53,13 +55,29 @@ def format_header_date(value: date) -> str:
     return f"{value.month:02d}/{value.day:02d}({WEEKDAYS_KR[value.weekday()]}요일)"
 
 
+def sane_default_year(year: int | None) -> int:
+    today_year = date.today().year
+    if year is None or year < 2018 or year in PLACEHOLDER_YEARS:
+        return today_year
+    return year
+
+
+def _apply_year(year: int, month: int, day: int, default_year: int) -> str | None:
+    use_year = default_year if year in PLACEHOLDER_YEARS or year < 2018 else year
+    try:
+        return date(use_year, month, day).isoformat()
+    except ValueError:
+        return None
+
+
 def parse_header_date(value: object, default_year: int) -> str | None:
+    default_year = sane_default_year(default_year)
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value.date().isoformat()
+        return _apply_year(value.year, value.month, value.day, default_year)
     if isinstance(value, date):
-        return value.isoformat()
+        return _apply_year(value.year, value.month, value.day, default_year)
     text = str(value).strip()
     if not text:
         return None
@@ -69,10 +87,22 @@ def parse_header_date(value: object, default_year: int) -> str | None:
     year = int(match.group(1)) if match.group(1) else default_year
     month = int(match.group(2))
     day = int(match.group(3))
-    try:
-        return date(year, month, day).isoformat()
-    except ValueError:
-        return None
+    return _apply_year(year, month, day, default_year)
+
+
+def infer_year_from_sheet(sheet: Worksheet) -> int | None:
+    for row in sheet.iter_rows(min_row=1, max_row=8, max_col=8, values_only=True):
+        for value in row:
+            if value is None:
+                continue
+            if isinstance(value, datetime) and value.year >= 2018:
+                return value.year
+            if isinstance(value, date) and value.year >= 2018:
+                return value.year
+            match = YEAR_IN_TEXT.search(str(value))
+            if match:
+                return int(match.group(1))
+    return None
 
 
 def _cell_value(ws: Worksheet, row: int, col: int) -> Any:
@@ -410,9 +440,10 @@ def _parse_block_overtime(sheet: Worksheet, default_year: int) -> ParseResult:
 
 def parse_overtime_workbook(data: bytes | BytesIO, default_year: int | None = None) -> ParseResult:
     workbook = load_workbook(filename=BytesIO(data) if isinstance(data, bytes) else data, data_only=True)
-    year = default_year or date.today().year
+    fallback_year = sane_default_year(default_year)
     combined = ParseResult()
     for sheet in workbook.worksheets:
+        year = infer_year_from_sheet(sheet) or fallback_year
         parsed = _parse_flat_overtime(sheet, year) if _is_flat_overtime_sheet(sheet) else _parse_block_overtime(sheet, year)
         combined.entries.extend(parsed.entries)
         combined.warnings.extend(parsed.warnings)
