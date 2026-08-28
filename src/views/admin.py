@@ -35,7 +35,7 @@ def render_admin_home(username: str) -> None:
 
 
 def render_admin_tools(username: str) -> None:
-    st.caption("조사 배포, 본사 요청 양식, 취합, 전체 명부 엑셀은 여기에서 합니다.")
+    st.caption("본사 요청 배포·취합, 전체 명부 엑셀은 여기에서 합니다. 특근 입력은 달력에서 언제든지 가능합니다.")
     hq_tab, survey_tab, review_tab, roster_tab, account_tab = st.tabs(
         ["본사 요청 양식", "조사 관리", "제출 현황 · 취합", "명부 엑셀", "계정"]
     )
@@ -135,7 +135,10 @@ def _render_survey_manager(username: str) -> None:
                     st.caption("원본에는 0시간 인원이 포함될 수 있습니다. 취합본은 검토 탭에서 받습니다. 메일은 보내지 않습니다.")
                     st.info("특근 인원은 상단 「특근인원」 달력에서 날짜를 눌러 입력합니다.")
             else:
-                st.warning("배포 전에는 팀 입력창이 열리지 않습니다.")
+                if is_generic(survey):
+                    st.warning("배포 전에는 팀의 「본사요청 취합자료」에 나타나지 않습니다.")
+                else:
+                    st.caption("특근 입력은 달력에서 언제든지 가능합니다. 이 건을 배포하면 취합 탭에서도 모을 수 있습니다.")
                 if st.button("배포", key=f"publish_btn_{survey['id']}"):
                     st.session_state["pending_publish_id"] = survey["id"]
                     st.rerun()
@@ -150,7 +153,7 @@ def _render_survey_manager(username: str) -> None:
 @st.dialog("배포하시겠습니까?")
 def _confirm_publish_dialog(username: str, survey: dict) -> None:
     st.write(f"**{survey['title']}** 을(를) 팀에 배포합니다.")
-    st.caption("확인하면 팀 입력창이 열립니다.")
+    st.caption("본사 요청은 배포해야 팀이 기입합니다. 특근은 달력에서 이미 입력할 수 있습니다.")
     yes_col, no_col = st.columns(2)
     if yes_col.button("배포하기", type="primary"):
         publish_survey(username, int(survey["id"]))
@@ -165,8 +168,8 @@ def _render_ops_guide() -> None:
     st.subheader("사용 안내")
     st.markdown(
         """
-1. 수요일: 조사 만들기 → **배포** 확인  
-2. 목요일 11시까지: 팀이 입력·제출  
+1. 특근: 달력에서 날짜를 눌러 입력합니다. 배포가 없어도 됩니다.  
+2. 본사 요청: 양식 만들기 → **배포** 확인  
 3. 취합 탭에서 **지금 취합** → 이상치 확인 → 엑셀 받기  
 4. 엑셀을 검토한 뒤 공장장에게 **직접 메일** (자동 발송 없음)  
 5. 파일럿 기간에는 기존 엑셀 취합과 **인원 수, 식수, 일자별 이름**을 대조하세요

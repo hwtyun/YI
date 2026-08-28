@@ -5,14 +5,13 @@ from datetime import date
 import streamlit as st
 
 from src.config import CAFETERIA_MIN_HEADCOUNT, COMPANIES, cafeteria_operating
-from src.schema import is_generic
 from src.store import (
     AccessDenied,
+    ensure_open_overtime_survey,
     list_employees,
     list_entries,
     list_factory_overtime_counts,
-    list_overtime_entries,
-    list_surveys,
+    list_overtime_people,
     replace_team_entries,
     set_submitted,
     survey_edit_status,
@@ -41,20 +40,6 @@ def _sunday_first_weeks(year: int, month: int) -> list[list[int]]:
     import calendar
 
     return calendar.Calendar(firstweekday=6).monthdayscalendar(year, month)
-
-
-def _overtime_surveys(username: str) -> list[dict]:
-    return [item for item in list_surveys(username) if item.get("is_published") and not is_generic(item)]
-
-
-def _survey_for_date(surveys: list[dict], day: date) -> dict | None:
-    text = day.isoformat()
-    matches = [
-        item
-        for item in surveys
-        if str(item["period_start"]) <= text <= str(item["period_end"])
-    ]
-    return matches[0] if matches else None
 
 
 def _counts_by_date(entries: list[dict]) -> dict[str, int]:
@@ -94,8 +79,8 @@ def _cell_html(day_num: int, dow: int, factory_count: int, in_range: bool, selec
 def render_overtime_calendar(username: str, team: str | None, read_only: bool) -> None:
     st.header("특근인원")
     st.caption(
-        "특근이 있는 날을 누르면 오른쪽에서 우리 팀 인원을 입력합니다. "
-        f"달력의 인원 수는 공장 전체이며, {CAFETERIA_MIN_HEADCOUNT}명 이상이면 식당을 운영합니다."
+        "날짜를 누르면 그날 공장 전체 특근 명단을 볼 수 있습니다. "
+        f"입력은 우리 팀만 가능합니다. 달력 인원 수는 공장 전체이며, {CAFETERIA_MIN_HEADCOUNT}명 이상이면 식당을 운영합니다."
     )
 
     today = date.today()
@@ -116,21 +101,11 @@ def render_overtime_calendar(username: str, team: str | None, read_only: bool) -
         st.rerun()
     nav4.markdown(f"**{month_cursor.year}년 {month_cursor.month}월**")
 
-    surveys = _overtime_surveys(username)
-    if not surveys:
-        st.info("배포된 특근 조사가 없습니다. 관리자가 배포한 기간의 날짜만 입력할 수 있습니다.")
+    survey = ensure_open_overtime_survey(username)
     factory_counts = list_factory_overtime_counts(username)
-    if read_only:
-        entries = []
-        for survey in surveys:
-            entries.extend(list_overtime_entries(username, int(survey["id"])))
-    elif team:
-        entries = []
-        for survey in surveys:
-            entries.extend(_team_entries(list_entries(username, int(survey["id"])), team))
-    else:
-        entries = []
-    team_counts = _counts_by_date(entries)
+    team_counts = _counts_by_date(
+        [item for item in list_overtime_people(username) if team and str(item.get("team") or "") == team]
+    )
 
     left, right = st.columns([7, 5], gap="large")
     with left:
@@ -154,13 +129,12 @@ def render_overtime_calendar(username: str, team: str | None, read_only: bool) -
                     day = date(month_cursor.year, month_cursor.month, day_num)
                     iso = day.isoformat()
                     factory_count = factory_counts.get(iso, 0)
-                    in_range = _survey_for_date(surveys, day) is not None
                     st.markdown(
-                        _cell_html(day_num, dow, factory_count, in_range, selected == iso),
+                        _cell_html(day_num, dow, factory_count, True, selected == iso),
                         unsafe_allow_html=True,
                     )
                     clicked = st.button(
-                        "열기" if in_range or factory_count else " ",
+                        "열기",
                         key=f"cal_day_{iso}",
                         type="primary" if selected == iso else "secondary",
                         width="stretch",
@@ -177,7 +151,6 @@ def render_overtime_calendar(username: str, team: str | None, read_only: bool) -
             st.markdown("</div>", unsafe_allow_html=True)
             return
         selected_day = date.fromisoformat(str(st.session_state["selected_date"]))
-        survey = _survey_for_date(surveys, selected_day)
         weekday = "월화수목금토일"[selected_day.weekday()]
         st.subheader(f"{selected_day.month}/{selected_day.day} ({weekday})")
         factory_count = factory_counts.get(selected_day.isoformat(), 0)
@@ -191,30 +164,32 @@ def render_overtime_calendar(username: str, team: str | None, read_only: bool) -
             "</div>",
             unsafe_allow_html=True,
         )
-        if survey is None:
-            st.warning("이 날짜에 배포된 특근 조사가 없습니다.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-        st.caption(survey["title"])
         if cafe:
             st.success(f"특근 {factory_count}명 · 식당 운영 ({CAFETERIA_MIN_HEADCOUNT}명 이상)")
         else:
             st.caption(f"식당은 특근 {CAFETERIA_MIN_HEADCOUNT}명부터 운영합니다.")
-        day_rows = [item for item in entries if str(item.get("work_date")) == selected_day.isoformat()]
+        day_rows = list_overtime_people(username, selected_day.isoformat())
         by_company: dict[str, int] = {}
+        by_team: dict[str, int] = {}
         for item in day_rows:
-            if float(item.get("work_hours") or 0) <= 0:
-                continue
             company = str(item.get("company") or "미지정")
             by_company[company] = by_company.get(company, 0) + 1
-        if by_company:
+            team_name = str(item.get("team") or "미지정")
+            by_team[team_name] = by_team.get(team_name, 0) + 1
+        if by_team:
+            chips = "".join(f"<span class='yi-chip'>{name} {count}명</span>" for name, count in by_team.items())
+            st.markdown(chips, unsafe_allow_html=True)
+        elif by_company:
             chips = "".join(f"<span class='yi-chip'>{name} {count}명</span>" for name, count in by_company.items())
             st.markdown(chips, unsafe_allow_html=True)
+        st.markdown("**공장 전체 특근 명단**")
+        _render_readonly_list(day_rows)
         if read_only:
-            _render_readonly_list(day_rows)
+            st.caption("공장장은 조회만 가능합니다.")
         elif team:
-            if team:
-                st.caption(f"{team} 명단만 입력합니다. 다른 팀 이름은 보이지 않습니다.")
+            st.divider()
+            st.markdown(f"**{team} 입력**")
+            st.caption("아래 명단만 저장됩니다. 위 전체 명단은 모든 팀이 볼 수 있습니다.")
             _render_team_date_editor(username, team, survey, selected_day.isoformat())
             with st.expander("엑셀로 올리기 · 받기"):
                 _render_excel_io(
@@ -301,9 +276,11 @@ def _render_team_date_editor(username: str, team: str, survey: dict, work_date: 
         if save_col.button("저장", key=f"cal_save_{survey_id}_{work_date}"):
             replace_team_entries(username, survey_id, team, merged)
             st.success("저장했습니다.")
+            st.rerun()
         if submit_col.button("제출", type="primary", key=f"cal_submit_{survey_id}_{work_date}"):
             replace_team_entries(username, survey_id, team, merged)
             set_submitted(username, survey_id, team, True)
             st.success("제출했습니다.")
+            st.rerun()
     except AccessDenied as exc:
         st.error(str(exc))

@@ -26,6 +26,12 @@ class AccessDenied(PermissionError):
     """권한 없는 데이터 접근."""
 
 
+OPEN_OVERTIME_TITLE = "상시 특근 입력"
+OPEN_OVERTIME_START = "2000-01-01"
+OPEN_OVERTIME_END = "2099-12-31"
+OPEN_OVERTIME_DEADLINE = "2099-12-31T23:59:59"
+
+
 def _now() -> str:
     from datetime import datetime, timezone
 
@@ -156,6 +162,71 @@ def publish_survey(username: str, survey_id: int) -> None:
         conn.close()
 
 
+def ensure_open_overtime_survey(username: str) -> dict[str, Any]:
+    """특근은 배포 없이 언제든 입력한다. 상시 조사가 없으면 만들어 바로 연다."""
+    _require_known_user(username)
+    now = _now()
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT id FROM surveys
+            WHERE IFNULL(kind, ?) = ? AND title = ?
+            ORDER BY id ASC
+            """,
+            (KIND_OVERTIME, KIND_OVERTIME, OPEN_OVERTIME_TITLE),
+        ).fetchone()
+        if row is None:
+            cursor = conn.execute(
+                """
+                INSERT INTO surveys (
+                    title, period_start, period_end, deadline_at,
+                    is_published, created_by, created_at, kind, schema_json
+                )
+                VALUES (?, ?, ?, ?, 1, ?, ?, ?, NULL)
+                """,
+                (
+                    OPEN_OVERTIME_TITLE,
+                    OPEN_OVERTIME_START,
+                    OPEN_OVERTIME_END,
+                    OPEN_OVERTIME_DEADLINE,
+                    username,
+                    now,
+                    KIND_OVERTIME,
+                ),
+            )
+            survey_id = int(cursor.lastrowid)
+        else:
+            survey_id = int(row["id"])
+            conn.execute(
+                """
+                UPDATE surveys
+                SET is_published = 1,
+                    period_start = ?,
+                    period_end = ?,
+                    deadline_at = ?
+                WHERE id = ?
+                """,
+                (OPEN_OVERTIME_START, OPEN_OVERTIME_END, OPEN_OVERTIME_DEADLINE, survey_id),
+            )
+        for team in SUBMITTING_TEAMS:
+            conn.execute(
+                """
+                INSERT INTO submissions (survey_id, team, is_submitted, submitted_at, updated_at)
+                VALUES (?, ?, 0, NULL, ?)
+                ON CONFLICT(survey_id, team) DO NOTHING
+                """,
+                (survey_id, team, now),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    survey = get_survey_by_id(survey_id)
+    if survey is None:
+        raise AccessDenied("상시 특근 조사를 열 수 없습니다.")
+    return survey
+
+
 def list_surveys(username: str) -> list[dict[str, Any]]:
     _require_known_user(username)
     conn = get_connection()
@@ -211,6 +282,8 @@ def survey_edit_status(username: str, survey_id: int) -> tuple[bool, str]:
         return False, "공장장은 데이터를 입력할 수 없습니다."
     if not survey["is_published"]:
         return False, "아직 배포되지 않아 입력할 수 없습니다."
+    if str(survey.get("title") or "") == OPEN_OVERTIME_TITLE:
+        return True, ""
     if _role(username) == ROLE_TEAM and is_past_deadline(str(survey["deadline_at"])):
         return False, "마감되어 수정할 수 없습니다."
     return True, ""
@@ -309,7 +382,7 @@ def list_entries(username: str, survey_id: int) -> list[dict[str, Any]]:
 
 
 def list_overtime_entries(username: str, survey_id: int) -> list[dict[str, Any]]:
-    """근무시간 > 0인 행만. 관리자·공장장은 전체, 팀은 본인 팀만. 공장장은 0시간 원본을 볼 수 없다."""
+    """근무시간 > 0인 행만. 모든 역할이 해당 조사의 전체 팀 특근 명단을 본다. 공장장은 0시간 원본을 볼 수 없다."""
     _require_known_user(username)
     role = _role(username)
     if role == ROLE_DIRECTOR:
@@ -318,20 +391,7 @@ def list_overtime_entries(username: str, survey_id: int) -> list[dict[str, Any]]
             return []
     conn = get_connection()
     try:
-        if role == ROLE_TEAM:
-            team = _own_team(username)
-            rows = conn.execute(
-                """
-                SELECT id, survey_id, team, seq_no, rank, name, work_date,
-                       work_hours, meal_count, note, company, employment_type,
-                       is_manual, updated_at
-                FROM entries
-                WHERE survey_id = ? AND team = ? AND work_hours > 0
-                ORDER BY work_date, seq_no, id
-                """,
-                (survey_id, team),
-            ).fetchall()
-        elif role in (ROLE_ADMIN, ROLE_DIRECTOR):
+        if role in (ROLE_TEAM, ROLE_ADMIN, ROLE_DIRECTOR):
             rows = conn.execute(
                 """
                 SELECT id, survey_id, team, seq_no, rank, name, work_date,
@@ -351,23 +411,50 @@ def list_overtime_entries(username: str, survey_id: int) -> list[dict[str, Any]]
 
 
 def list_factory_overtime_counts(username: str) -> dict[str, int]:
-    """배포된 특근 조사의 일자별 전체 특근 인원. 이름은 넣지 않아 모든 팀이 볼 수 있다."""
+    """일자별 공장 전체 특근 인원(팀+이름 중복 제외). 모든 계정이 볼 수 있다."""
+    people = list_overtime_people(username)
+    counts: dict[str, int] = {}
+    for item in people:
+        key = str(item.get("work_date") or "")
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def list_overtime_people(username: str, work_date: str | None = None) -> list[dict[str, Any]]:
+    """특근(시간>0) 명단. 모든 팀이 공장 전체를 볼 수 있다. 입력은 본인 팀만."""
     _require_known_user(username)
     conn = get_connection()
     try:
-        rows = conn.execute(
-            """
-            SELECT e.work_date AS work_date, COUNT(*) AS headcount
+        params: list[Any] = [KIND_OVERTIME, KIND_OVERTIME]
+        sql = """
+            SELECT e.team, e.name, e.company, e.employment_type, e.work_hours,
+                   e.meal_count, e.note, e.work_date
             FROM entries e
             INNER JOIN surveys s ON s.id = e.survey_id
-            WHERE s.is_published = 1
-              AND IFNULL(s.kind, ?) = ?
+            WHERE IFNULL(s.kind, ?) = ?
               AND e.work_hours > 0
-            GROUP BY e.work_date
-            """,
-            (KIND_OVERTIME, KIND_OVERTIME),
-        ).fetchall()
-        return {str(row["work_date"]): int(row["headcount"]) for row in rows}
+        """
+        if work_date:
+            sql += " AND e.work_date = ?"
+            params.append(work_date)
+        sql += " ORDER BY e.team, e.name, e.id"
+        rows = conn.execute(sql, params).fetchall()
+        seen: set[tuple[str, str, str]] = set()
+        people: list[dict[str, Any]] = []
+        for row in rows:
+            item = _row_dict(row)
+            stamp = (
+                str(item.get("team") or ""),
+                str(item.get("name") or ""),
+                str(item.get("work_date") or ""),
+            )
+            if stamp in seen:
+                continue
+            seen.add(stamp)
+            people.append(item)
+        return people
     finally:
         conn.close()
 
