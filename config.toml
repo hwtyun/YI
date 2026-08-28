@@ -1,0 +1,11 @@
+[server]
+headless = true
+maxUploadSize = 20
+fileWatcherType = "poll"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "viewer"
+showErrorDetails = "none"
