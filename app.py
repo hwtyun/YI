@@ -7,6 +7,12 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+# Streamlit Cloud는 저장소를 /mount/src/<repo> 에 둡니다.
+# 패키지 이름이 src 이면 /mount/src 와 충돌해 ModuleNotFoundError가 납니다.
+sys.path.insert(0, str(ROOT))
 
 # Streamlit은 app.py만 다시 읽고 src.* 는 옛 버전을 남긴다.
 # auth/theme에 새 이름이 생기면 ImportError가 반복되므로 매 실행마다 비운다.
