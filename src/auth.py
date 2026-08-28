@@ -10,6 +10,7 @@ import streamlit_authenticator as stauth
 
 from src.config import ROLE_ADMIN, USERS, primary_role
 from src.db import get_password_hash, upsert_password_hash
+from src.secrets_util import password_map
 
 COOKIE_NAME = "yi_factory_auth"
 LOGIN_FIELDS = {
@@ -45,7 +46,7 @@ def sign_in(authenticator, username: str, password: str) -> bool:
                 return True
         secret = None
         try:
-            secret = str(st.secrets["passwords"][user])
+            secret = str(password_map().get(user) or "")
         except Exception:
             secret = None
         if not secret:
@@ -79,7 +80,7 @@ def validate_new_password(password: str) -> str | None:
 
 
 def build_credentials() -> dict[str, Any]:
-    passwords = st.secrets["passwords"]
+    passwords = password_map()
     usernames: dict[str, Any] = {}
     for username, meta in USERS.items():
         stored = (get_password_hash(username) or "").strip()

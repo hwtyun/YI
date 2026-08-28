@@ -25,6 +25,7 @@ import streamlit as st
 from src.auth import get_authenticator, sign_in
 from src.config import USERS
 from src.db import init_db
+from src.secrets_util import missing_secret_names, render_secrets_help
 from src.theme import THEME_CSS, render_logo
 from src.views.shell import render_signed_in
 
@@ -38,20 +39,14 @@ init_db()
 
 
 def _secrets_ready() -> bool:
-    try:
-        _ = st.secrets["cookie_key"]
-        passwords = st.secrets["passwords"]
-        missing = [name for name in USERS if name not in passwords]
-        if missing:
-            st.error(f"`.streamlit/secrets.toml`의 [passwords]에 계정이 없습니다: {', '.join(missing)}")
-            return False
+    missing = missing_secret_names()
+    if not missing:
         return True
-    except Exception:
-        st.error(
-            "`.streamlit/secrets.toml`이 없거나 계정 정보가 비어 있습니다. "
-            "`.streamlit/secrets.toml.example`을 복사해 비밀번호를 채운 뒤 다시 실행하세요."
-        )
-        return False
+    st.markdown(THEME_CSS, unsafe_allow_html=True)
+    render_logo(160)
+    st.title("용인공장 특근 인원 조사")
+    render_secrets_help(missing)
+    return False
 
 
 def _authenticator():
