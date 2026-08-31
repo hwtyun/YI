@@ -224,7 +224,122 @@ def _render_login(authenticator) -> None:
     st.info("아이디와 비밀번호를 입력한 뒤 로그인하세요.")
 
 
+def _render_prodadmin_excel_roster(username: str) -> None:
+    """Cloud가 옛 roster 화면만 읽어도, app.py만 올리면 엑셀 받기·올리기가 보이게 한다."""
+    from src.config import COMPANIES, EMPLOYMENT_TYPES, ROLE_ADMIN, SUBMITTING_TEAMS, primary_role
+    from src.excel_io import build_employee_template, parse_employee_roster
+    from src.store import AccessDenied, list_employees, replace_employee_roster
+
+    if primary_role(username) != ROLE_ADMIN:
+        return
+
+    st.subheader("재직인원 명부")
+    st.caption("양식을 다운받아 성명·회사·팀·고용형태를 적은 다음, 아래에서 엑셀을 올리세요.")
+    current = list_employees(username)
+    left, right = st.columns(2)
+    with left:
+        st.download_button(
+            "재직인원 양식 다운받기",
+            data=build_employee_template([]),
+            file_name="재직인원_양식.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="app_dl_roster_template",
+        )
+    with right:
+        st.download_button(
+            "현재 재직인원 엑셀 받기",
+            data=build_employee_template(current),
+            file_name="재직인원_전체.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="app_dl_roster_current",
+            disabled=not current,
+        )
+
+    uploaded = st.file_uploader("재직인원 엑셀 업로드", type=["xlsx"], key="app_up_roster")
+    if uploaded is not None:
+        parsed = parse_employee_roster(uploaded.getvalue())
+        if parsed.errors:
+            st.error("아래 행은 반영되지 않습니다.")
+            for item in parsed.errors:
+                st.write(f"- {item}")
+        if parsed.rows:
+            st.success(f"유효한 인원 {len(parsed.rows)}명")
+            st.dataframe(
+                [
+                    {
+                        "성명": item["name"],
+                        "회사": item["company"],
+                        "팀": item["team"],
+                        "고용형태": item["employment_type"],
+                    }
+                    for item in parsed.rows
+                ],
+                hide_index=True,
+                width="stretch",
+            )
+            replace_ok = st.checkbox("기존 명부를 이 파일로 바꿉니다", key="app_confirm_roster_replace")
+            if st.button("명부 반영", type="primary", key="app_apply_roster"):
+                if not replace_ok:
+                    st.error("확인 체크를 한 뒤에 반영해 주세요.")
+                else:
+                    try:
+                        count = replace_employee_roster(username, parsed.rows)
+                        st.success(f"명부 {count}명을 반영했습니다.")
+                        st.rerun()
+                    except AccessDenied as exc:
+                        st.error(str(exc))
+        elif not parsed.errors:
+            st.warning("파일에서 인원을 읽지 못했습니다.")
+
+    st.markdown("**현재 전체 재직인원**")
+    if not current:
+        st.info(
+            "아직 명부가 없습니다. 「재직인원 양식 다운받기」로 양식을 받아 올린 뒤 확인하세요. "
+            f"회사: {' · '.join(COMPANIES)} / 팀: {' · '.join(SUBMITTING_TEAMS)} / 고용형태: {' · '.join(EMPLOYMENT_TYPES)}"
+        )
+    else:
+        st.caption(f"전체 {len(current)}명")
+        st.dataframe(
+            [
+                {
+                    "성명": item["name"],
+                    "회사": item["company"],
+                    "팀": item["team"],
+                    "고용형태": item["employment_type"],
+                }
+                for item in current
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+
+
+def _install_admin_roster_patch() -> None:
+    import src.views.roster_edit as roster_edit
+
+    original = roster_edit.render_team_roster_editor
+    if getattr(original, "_yi_excel_patched", False):
+        return
+
+    def wrapped(username, allow_all_teams=False, **kwargs):
+        from src.config import ROLE_ADMIN, primary_role
+
+        if primary_role(username) == ROLE_ADMIN and not st.session_state.get("_yi_excel_roster_shown"):
+            _render_prodadmin_excel_roster(username)
+            st.session_state["_yi_excel_roster_shown"] = True
+            st.divider()
+        try:
+            return original(username, allow_all_teams=allow_all_teams, **kwargs)
+        except TypeError:
+            return original(username)
+
+    wrapped._yi_excel_patched = True
+    roster_edit.render_team_roster_editor = wrapped
+
+
 def _render_app(authenticator) -> None:
+    st.session_state.pop("_yi_excel_roster_shown", None)
+    _install_admin_roster_patch()
     from src.views.shell import render_signed_in
 
     _inject_css(_PAGE_TEXT_CSS)
