@@ -1226,11 +1226,13 @@ def _call_form_ai(request_text: str) -> str:
     prompt = (
         "당신은 공장의 팀별 취합 양식을 설계합니다.\n"
         "아래는 본사에서 온 요청 메일 본문과 첨부 내용입니다.\n"
-        "각 팀이 웹에서 입력해야 할 표 컬럼을 추출하세요.\n"
+        "팀이 웹에서 적어야 하는 칸만 추리세요. 첨부 엑셀 헤더를 전부 복사하지 마세요.\n"
         "반드시 JSON만 출력하세요. 배포 여부, 자동 발송, 메일 발송 필드는 넣지 마세요.\n"
         '형식: {"title":"조사 제목","instructions":"짧은 안내",'
         '"columns":[{"key":"item_name","label":"한글 항목명","type":"text","required":true}]}\n'
-        "규칙: columns 1~20개, type은 text/number/date, key는 영문·숫자·밑줄만.\n\n요청:\n"
+        "규칙: columns 1~8개, type은 text/number/date, key는 영문·숫자·밑줄만. "
+        "성명·회사·팀은 명부에서 채우므로 추가 필요 항목만 넣으세요. "
+        "메일이 명시하지 않으면 No, 주민번호, 전화번호, 성별, 생년월일, 주소, 직업, 직업코드를 넣지 마세요.\n\n요청:\n"
         f"{request_text}"
     )
 
@@ -1316,11 +1318,175 @@ def _install_ai_schema_patch() -> None:
         pass
 
 
+def _hq_entry_schema(schema: dict) -> dict:
+    try:
+        from src.schema import entry_schema
+
+        return entry_schema(schema)
+    except Exception:
+        pass
+    junk = (
+        "주민", "전화", "연락처", "휴대폰", "핸드폰", "성별", "생년월일",
+        "주소", "직업코드", "직업",
+    )
+    exact = {"no", "#", "번호", "순번", "연번"}
+    kept = []
+    for item in schema.get("columns") or []:
+        label = str(item.get("label") or "").replace(" ", "").lower()
+        if label in exact or any(part in label for part in junk):
+            continue
+        kept.append(item)
+    columns = kept or list(schema.get("columns") or [])[:3]
+    labels = {str(item.get("label") or "") for item in columns}
+    if "성명" not in labels and "이름" not in labels:
+        columns = [{"key": "name", "label": "성명", "type": "text", "required": True}] + columns
+    if "회사" not in labels:
+        columns = columns[:1] + [{"key": "company", "label": "회사", "type": "text", "required": False}] + columns[1:]
+    if "팀" not in labels and "부서" not in labels and "부서명" not in labels:
+        columns.append({"key": "team", "label": "팀", "type": "text", "required": False})
+    out = dict(schema)
+    out["columns"] = columns
+    return out
+
+
+def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
+    from src.store import (
+        AccessDenied,
+        list_employees,
+        list_responses,
+        replace_team_responses,
+        set_submitted,
+        survey_edit_status,
+    )
+
+    import pandas as pd
+
+    survey_id = int(survey["id"])
+    schema = _hq_entry_schema(survey.get("schema") or {"columns": []})
+    columns = list(schema.get("columns") or [])
+    existing = [item for item in list_responses(username, survey_id) if item.get("team") == team]
+    employees = list_employees(username, team)
+
+    def roster_value(column, employee):
+        label = str(column.get("label") or "")
+        if label in {"성명", "이름", "성함"}:
+            return employee.get("name") or ""
+        if label in {"회사", "소속회사"}:
+            return employee.get("company") or ""
+        if label in {"팀", "부서", "부서명", "소속"}:
+            return employee.get("team") or ""
+        if label == "고용형태":
+            return employee.get("employment_type") or ""
+        return ""
+
+    records = []
+    seen = set()
+    for item in existing:
+        payload = item.get("payload") or {}
+        row = {str(column["label"]): payload.get(column["key"]) for column in columns}
+        records.append(row)
+        name = str(row.get("성명") or row.get("이름") or "").strip()
+        if name:
+            seen.add(name)
+    for employee in employees:
+        name = str(employee.get("name") or "").strip()
+        if name and name in seen:
+            continue
+        records.append({str(column["label"]): roster_value(column, employee) for column in columns})
+        if name:
+            seen.add(name)
+    labels = [str(column["label"]) for column in columns]
+    if records:
+        frame = pd.DataFrame(records)
+        for label in labels:
+            if label not in frame.columns:
+                frame[label] = pd.NA
+        frame = frame[labels]
+    else:
+        frame = pd.DataFrame({label: pd.Series(dtype="string") for label in labels})
+
+    st.caption(
+        schema.get("instructions")
+        or "아래 표에는 이 조사에 필요한 칸만 나옵니다. 주민번호·주소 같은 첨부 양식 칸은 빼 두었습니다."
+    )
+    if employees:
+        st.markdown("**우리 팀 인원**")
+        st.dataframe(
+            [
+                {
+                    "회사": item.get("company") or "",
+                    "성명": item.get("name") or "",
+                    "고용형태": item.get("employment_type") or "",
+                }
+                for item in employees
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption("명부에 있는 인원을 아래 입력표에 미리 넣었습니다. 이번 조사에 해당하지 않으면 그 행을 지우면 됩니다.")
+    edited = st.data_editor(
+        frame,
+        num_rows="dynamic",
+        hide_index=True,
+        width="stretch",
+        key=f"generic_ed_{survey_id}_{team}_{'_'.join(labels)}",
+    )
+    can_edit, reason = survey_edit_status(username, survey_id)
+    if not can_edit:
+        st.warning(reason)
+        return
+    payloads = []
+    if edited is not None and not edited.empty:
+        for _, row in edited.iterrows():
+            payload = {}
+            empty = True
+            for column in columns:
+                value = row.get(column["label"])
+                if value is None or (isinstance(value, float) and pd.isna(value)):
+                    payload[column["key"]] = None
+                    continue
+                text = str(value).strip()
+                if not text or text.lower() == "nan":
+                    payload[column["key"]] = None
+                    continue
+                empty = False
+                payload[column["key"]] = text
+            if not empty:
+                payloads.append(payload)
+    save_col, submit_col = st.columns(2)
+    try:
+        if save_col.button("저장", key=f"generic_save_{survey_id}_{team}"):
+            replace_team_responses(username, survey_id, team, payloads)
+            st.success("저장했습니다.")
+        if submit_col.button("제출", type="primary", key=f"generic_submit_{survey_id}_{team}"):
+            replace_team_responses(username, survey_id, team, payloads)
+            set_submitted(username, survey_id, team, True)
+            st.success("제출했습니다. 마감 전까지 다시 수정할 수 있습니다.")
+    except AccessDenied as exc:
+        st.error(str(exc))
+
+
+def _install_generic_editor_patch() -> None:
+    wrapped = _render_hq_generic_editor
+    for module_name in (
+        "src.views.generic_editor",
+        "src.views.hq",
+        "src.views.admin",
+        "src.views.team",
+    ):
+        try:
+            module = __import__(module_name, fromlist=["render_generic_editor"])
+            module.render_generic_editor = wrapped
+        except Exception:
+            pass
+
+
 def _render_app(authenticator) -> None:
     st.session_state.pop("_yi_excel_roster_shown", None)
     _install_calendar_nav_patch()
     _install_admin_roster_patch()
     _install_ai_schema_patch()
+    _install_generic_editor_patch()
     from src.views.shell import render_signed_in
 
     _inject_css(_PAGE_TEXT_CSS)
