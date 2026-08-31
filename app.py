@@ -49,6 +49,25 @@ _LOGO_CANDIDATES = (
     _ROOT / "static" / "atec_ci.png",
     _ROOT / "ATEC 영문_기본형.png",
 )
+_PAGE_TEXT_CSS = """
+<style>
+[data-testid="stHeading"],
+[data-testid="stHeading"] *,
+[data-testid="stCaption"],
+[data-testid="stCaption"] *,
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] *,
+.stHeading, .stHeading *,
+.stCaption, .stCaption *,
+h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+</style>
+"""
 _LOGIN_CSS = """
 <style>
 html, body, .stApp, [data-testid="stAppViewContainer"],
@@ -107,11 +126,16 @@ div[class*="st-key-yi_login"] [data-testid="stTextInput"] svg {
 """
 
 
-def _inject_login_styles() -> None:
+def _inject_css(css: str) -> None:
     try:
-        st.html(_LOGIN_CSS)
+        st.html(css)
     except Exception:
-        st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+        st.markdown(css, unsafe_allow_html=True)
+
+
+def _inject_login_styles() -> None:
+    _inject_css(_PAGE_TEXT_CSS)
+    _inject_css(_LOGIN_CSS)
 
 
 def _render_site_title() -> None:
@@ -203,6 +227,7 @@ def _render_login(authenticator) -> None:
 def _render_app(authenticator) -> None:
     from src.views.shell import render_signed_in
 
+    _inject_css(_PAGE_TEXT_CSS)
     username = st.session_state.get("username")
     if not username or username not in USERS:
         st.error("로그인 정보를 확인할 수 없습니다. 다시 로그인하세요.")

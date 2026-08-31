@@ -3,7 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.config import ROLE_ADMIN, ROLE_DIRECTOR, get_user, primary_role
-from src.theme import NAV_ADMIN, NAV_HQ, NAV_OVERTIME, NAV_PROFILE, inject_theme, render_logo
+from src.theme import NAV_ADMIN, NAV_HQ, NAV_OVERTIME, NAV_PROFILE, THEME_CSS, render_logo
 
 NAV_LABELS = {
     NAV_OVERTIME: "특근인원",
@@ -12,6 +12,40 @@ NAV_LABELS = {
 }
 
 
+_PAGE_TEXT_CSS = """
+<style>
+[data-testid="stHeading"],
+[data-testid="stHeading"] *,
+[data-testid="stCaption"],
+[data-testid="stCaption"] *,
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] *,
+.stHeading, .stHeading *,
+.stCaption, .stCaption *,
+h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+</style>
+"""
+
+
+def inject_theme() -> None:
+    try:
+        from branding import inject_login_styles
+
+        inject_login_styles()
+    except ImportError:
+        pass
+    try:
+        st.html(_PAGE_TEXT_CSS)
+        st.html(THEME_CSS)
+    except Exception:
+        st.markdown(_PAGE_TEXT_CSS, unsafe_allow_html=True)
+        st.markdown(THEME_CSS, unsafe_allow_html=True)
 
 
 def _nav_items(role: str) -> list[tuple[str, str]]:
