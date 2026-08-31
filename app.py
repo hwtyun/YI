@@ -1481,12 +1481,98 @@ def _install_generic_editor_patch() -> None:
             pass
 
 
+def _render_hq_page_live(username: str) -> None:
+    from src.config import ROLE_DIRECTOR, get_user, primary_role
+    from src.store import list_responses, list_surveys
+
+    try:
+        from src.schema import entry_schema, is_generic
+    except Exception:
+        def is_generic(item):
+            return str(item.get("kind") or "") == "generic"
+
+        def entry_schema(schema):
+            return _hq_entry_schema(schema)
+
+    st.header("본사요청 취합자료")
+    role = primary_role(username)
+    user = get_user(username)
+    team = user.get("team")
+    surveys = [
+        item
+        for item in list_surveys(username)
+        if is_generic(item) and item.get("is_published")
+    ]
+    st.caption("관리자가 배포한 본사 요청만 여기에 보입니다. 양식 만들기는 관리자메뉴에서 합니다.")
+
+    def pick_survey(items, key):
+        labels = {}
+        options = []
+        for index, item in enumerate(items, start=1):
+            label = f"{index}. {item['title']} ({item['period_start']}~{item['period_end']})"
+            if label in labels:
+                label = f"{label} · {item['id']}"
+            labels[label] = item
+            options.append(label)
+        st.caption(f"배포된 본사 요청 {len(options)}건. 아래에서 골라 입력하세요.")
+        selected = st.radio("조사 선택", options, key=key)
+        return labels[str(selected)]
+
+    if role == ROLE_DIRECTOR:
+        if not surveys:
+            st.info("배포된 본사 요청 취합이 없습니다.")
+            return
+        survey = pick_survey(surveys, "hq_survey_select")
+        st.write(f"마감 {survey['deadline_at']}")
+        schema = entry_schema(survey.get("schema") or {"columns": []})
+        rows = list_responses(username, int(survey["id"]))
+        if not rows:
+            st.caption("아직 입력이 없습니다.")
+            return
+        st.dataframe(
+            [
+                {
+                    "출처팀": item.get("team") or "",
+                    **{
+                        str(column["label"]): (item.get("payload") or {}).get(column["key"])
+                        for column in schema.get("columns") or []
+                    },
+                }
+                for item in rows
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+        return
+
+    if not team:
+        st.info("이 계정에는 입력할 팀이 없습니다.")
+        return
+    st.subheader(f"{team} 입력")
+    if not surveys:
+        st.info("배포된 본사 요청 취합이 없습니다.")
+        return
+    survey = pick_survey(surveys, "hq_survey_select")
+    st.write(f"마감 {survey['deadline_at']}")
+    _render_hq_generic_editor(username, str(team), survey)
+
+
+def _install_hq_page_patch() -> None:
+    try:
+        import src.views.hq as hq_mod
+
+        hq_mod.render_hq_page = _render_hq_page_live
+    except Exception:
+        pass
+
+
 def _render_app(authenticator) -> None:
     st.session_state.pop("_yi_excel_roster_shown", None)
     _install_calendar_nav_patch()
     _install_admin_roster_patch()
     _install_ai_schema_patch()
     _install_generic_editor_patch()
+    _install_hq_page_patch()
     from src.views.shell import render_signed_in
 
     _inject_css(_PAGE_TEXT_CSS)
