@@ -105,6 +105,44 @@ div[class*="st-key-cal_today"] {
     background: #fff4e5 !important;
     color: #b35c00 !important;
 }
+.yi-cell {
+    height: 5.8rem !important;
+    min-height: 5.8rem !important;
+    max-height: 5.8rem !important;
+    padding: 4px 2px 2px 2px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+.yi-cell-num { text-align: center; font-size: 0.95rem; margin-bottom: 2px !important; }
+.yi-cell-meta {
+    flex: 1;
+    min-height: 2.7rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+}
+.yi-tag {
+    display: block !important;
+    border-radius: 8px !important;
+    padding: 1px 4px !important;
+    margin: 0 2px !important;
+    font-size: 0.62rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+}
+.yi-tag-spacer { visibility: hidden !important; background: transparent !important; }
+[data-testid="stMarkdownContainer"]:has(.yi-cell) {
+    min-height: 5.8rem !important;
+}
+[data-testid="stMarkdownContainer"]:has(.yi-cell) p {
+    margin: 0 !important;
+}
 </style>
 """
 _LOGIN_CSS = """
@@ -872,19 +910,19 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
     def cell_html(day_num: int, dow: int, headcount: int, meals: int, selected: bool) -> str:
         css = "yi-sun" if dow == 0 else ("yi-sat" if dow == 6 else "yi-day")
         on = " yi-cell-on" if selected else ""
-        tags = []
         if headcount:
-            tags.append(f"<span class='yi-tag yi-tag-count'>특근 {headcount}명</span>")
-        if meals:
-            tags.append(f"<span class='yi-tag yi-tag-meal'>식수 {meals}명</span>")
-        if meals >= CAFETERIA_MIN_HEADCOUNT:
-            tags.append("<span class='yi-tag yi-tag-cafe'>식당운영</span>")
-        elif not headcount:
-            tags.append("<span class='yi-tag yi-tag-open'>입력</span>")
+            line1 = f"<span class='yi-tag yi-tag-count'>특근 {headcount} · 식수 {meals}</span>"
+            if meals >= CAFETERIA_MIN_HEADCOUNT:
+                line2 = "<span class='yi-tag yi-tag-cafe'>식당운영</span>"
+            else:
+                line2 = "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
+        else:
+            line1 = "<span class='yi-tag yi-tag-open'>입력</span>"
+            line2 = "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
         return (
             f"<div class='yi-cell{on}'>"
             f"<div class='{css} yi-cell-num'>{day_num}</div>"
-            f"{''.join(tags)}"
+            f"<div class='yi-cell-meta'>{line1}{line2}</div>"
             "</div>"
         )
 
