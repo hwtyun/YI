@@ -370,14 +370,31 @@ div[data-testid="stButton"] > button {
     border-radius: 10px !important;
     font-weight: 600 !important;
 }
-div[data-testid="stButton"] > button[kind="primary"] {
+div[data-testid="stButton"] > button[kind="primary"],
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button,
+[data-testid="stFileUploader"] button {
     background: #1a5fb4 !important;
     border: 1px solid #1a5fb4 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+div[data-testid="stButton"] > button[kind="primary"] *,
+[data-testid="stFormSubmitButton"] button *,
+[data-testid="stDownloadButton"] button *,
+[data-testid="stFileUploader"] button * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
 div[data-testid="stButton"] > button[kind="secondary"] {
     background: #fff !important;
-    color: #3d4f63 !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
     border: 1px solid #d7e3ef !important;
+}
+div[data-testid="stButton"] > button[kind="secondary"] * {
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
 }
 .yi-chip {
     display: inline-block;
@@ -499,42 +516,52 @@ html[data-theme="dark"] textarea,
 html[data-theme="dark"] select {
     color-scheme: dark !important;
 }
-[data-testid="stTextInput"] input,
 [data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stNumberInput"] [data-baseweb="input"],
+[data-testid="stDateInput"] [data-baseweb="input"],
+[data-testid="stTimeInput"] [data-baseweb="input"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stTextArea"] [data-baseweb="textarea"] {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d4e3 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="input"],
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"],
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    background-color: #2b2f36 !important;
+    border: 1px solid #3d4450 !important;
+}
 [data-testid="stTextInput"] [data-baseweb="base-input"],
 [data-testid="stTextInput"] [data-baseweb="base-input"] > div,
-[data-testid="stTextArea"] textarea,
-[data-testid="stTextArea"] [data-baseweb="textarea"],
 [data-testid="stTextArea"] [data-baseweb="base-input"],
-[data-testid="stTextArea"] [data-baseweb="base-input"] > div,
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
 [data-testid="stDateInput"] input,
 [data-testid="stTimeInput"] input,
-[data-testid="stNumberInput"] input,
-[data-testid="stSelectbox"] [data-baseweb="select"] > div,
-[data-baseweb="textarea"] textarea,
-[data-baseweb="input"] input,
-textarea {
-    background-color: #ffffff !important;
+[data-testid="stSelectbox"] input,
+[data-testid="stTextArea"] textarea {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
     color: #111111 !important;
     -webkit-text-fill-color: #111111 !important;
     caret-color: #111111 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 html[data-theme="dark"] [data-testid="stTextInput"] input,
-html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="input"],
-html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="base-input"],
-html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="base-input"] > div,
 html[data-theme="dark"] [data-testid="stTextArea"] textarea,
-html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"],
-html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="base-input"],
-html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="base-input"] > div,
 html[data-theme="dark"] [data-testid="stDateInput"] input,
-html[data-theme="dark"] [data-testid="stTimeInput"] input,
-html[data-theme="dark"] [data-testid="stNumberInput"] input,
-html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-html[data-theme="dark"] textarea,
-html[data-theme="dark"] input[type="text"],
-html[data-theme="dark"] input[type="password"] {
-    background-color: #2b2f36 !important;
+html[data-theme="dark"] [data-testid="stSelectbox"] input {
     color: #f4f6f8 !important;
     -webkit-text-fill-color: #f4f6f8 !important;
     caret-color: #f4f6f8 !important;
