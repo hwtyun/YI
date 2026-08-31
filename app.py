@@ -140,6 +140,14 @@ div[class*="st-key-cal_today"] {
     overflow: hidden !important;
 }
 .yi-tag-spacer { visibility: hidden !important; background: transparent !important; }
+.yi-sun, .yi-sun * {
+    color: #d94848 !important;
+    -webkit-text-fill-color: #d94848 !important;
+}
+.yi-sat, .yi-sat * {
+    color: #1a5fb4 !important;
+    -webkit-text-fill-color: #1a5fb4 !important;
+}
 [data-testid="stMarkdownContainer"]:has(.yi-cell) {
     min-height: 7.6rem !important;
 }
@@ -889,6 +897,85 @@ def _render_factory_overtime_list(
         st.error(str(exc))
 
 
+def _is_red_day(day) -> bool:
+    try:
+        from src.holidays import is_red_day
+
+        return is_red_day(day)
+    except Exception:
+        pass
+    from datetime import date, timedelta
+
+    lunar = {
+        2026: ((2, 17), (9, 25), (5, 24)),
+        2027: ((2, 7), (9, 15), (5, 13)),
+        2028: ((1, 27), (10, 3), (5, 2)),
+        2029: ((2, 13), (9, 22), (5, 20)),
+        2030: ((2, 3), (9, 12), (5, 9)),
+        2031: ((1, 23), (10, 1), (5, 28)),
+    }
+    elections = {2026: ((6, 3),), 2027: ((3, 3),), 2028: ((4, 12),)}
+    solar = (
+        (1, 1), (3, 1), (5, 1), (5, 5), (6, 6),
+        (7, 17), (8, 15), (10, 3), (10, 9), (12, 25),
+    )
+    sat_sun_sub = {(3, 1), (5, 1), (5, 5), (7, 17), (8, 15), (10, 3), (10, 9), (12, 25)}
+    if day.weekday() == 6:
+        return True
+    if day.year < 2026 or day.year > 2031:
+        return (day.month, day.day) in solar
+
+    holidays = {date(day.year, month, number) for month, number in solar}
+    seollal_days = []
+    chuseok_days = []
+    buddha = None
+    table = lunar.get(day.year)
+    if table:
+        seollal = date(day.year, table[0][0], table[0][1])
+        chuseok = date(day.year, table[1][0], table[1][1])
+        buddha = date(day.year, table[2][0], table[2][1])
+        seollal_days = [seollal + timedelta(days=delta) for delta in (-1, 0, 1)]
+        chuseok_days = [chuseok + timedelta(days=delta) for delta in (-1, 0, 1)]
+        holidays.update(seollal_days)
+        holidays.update(chuseok_days)
+        holidays.add(buddha)
+    holidays.update(date(day.year, month, number) for month, number in elections.get(day.year, ()))
+
+    def closed(value, blocked):
+        return value.weekday() == 6 or value in blocked
+
+    def next_open(value, blocked):
+        cursor = value + timedelta(days=1)
+        while closed(cursor, blocked):
+            cursor += timedelta(days=1)
+        if cursor.weekday() == 5:
+            cursor += timedelta(days=1)
+            while closed(cursor, blocked):
+                cursor += timedelta(days=1)
+        return cursor
+
+    named_other = {date(day.year, month, number) for month, number in solar}
+    named_other.update(date(day.year, month, number) for month, number in elections.get(day.year, ()))
+    if buddha is not None:
+        named_other.add(buddha)
+    triggers = []
+    for item in holidays:
+        if (item.month, item.day) in sat_sun_sub and item.weekday() >= 5:
+            triggers.append(item)
+    if buddha is not None and buddha.weekday() >= 5:
+        triggers.append(buddha)
+    for cluster in (seollal_days, chuseok_days):
+        if cluster and (
+            any(item.weekday() == 6 for item in cluster)
+            or any(item in named_other for item in cluster)
+        ):
+            triggers.append(max(cluster))
+    extras = set()
+    for item in sorted(set(triggers)):
+        extras.add(next_open(item, holidays | extras))
+    return day in holidays | extras
+
+
 def _render_overtime_calendar(username: str, team=None, read_only: bool = False, **kwargs) -> None:
     from datetime import date
 
@@ -910,19 +997,28 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
         except (TypeError, ValueError):
             return 0
 
-    def cell_html(day_num: int, dow: int, headcount: int, meals: int, selected: bool) -> str:
-        css = "yi-sun" if dow == 0 else ("yi-sat" if dow == 6 else "yi-day")
+    def cell_html(cell_day, day_num: int, dow: int, headcount: int, meals: int, selected: bool) -> str:
+        css = "yi-sun" if _is_red_day(cell_day) else ("yi-sat" if dow == 6 else "yi-day")
         on = " yi-cell-on" if selected else ""
-        line1 = f"<span class='yi-tag yi-tag-count'>특근 {headcount}명</span>"
-        line2 = f"<span class='yi-tag yi-tag-meal'>식수 {meals}명</span>"
-        if meals >= CAFETERIA_MIN_HEADCOUNT:
-            line3 = "<span class='yi-tag yi-tag-cafe'>식당운영</span>"
+        if headcount <= 0:
+            meta = (
+                "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
+                "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
+                "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
+            )
         else:
-            line3 = "<span class='yi-tag yi-tag-off'>식당미운영</span>"
+            line1 = f"<span class='yi-tag yi-tag-count'>특근 {headcount}명</span>"
+            line2 = f"<span class='yi-tag yi-tag-meal'>식수 {meals}명</span>"
+            line3 = (
+                "<span class='yi-tag yi-tag-cafe'>식당운영</span>"
+                if meals >= CAFETERIA_MIN_HEADCOUNT
+                else "<span class='yi-tag yi-tag-off'>식당미운영</span>"
+            )
+            meta = f"{line1}{line2}{line3}"
         return (
             f"<div class='yi-cell{on}'>"
             f"<div class='{css} yi-cell-num'>{day_num}</div>"
-            f"<div class='yi-cell-meta'>{line1}{line2}{line3}</div>"
+            f"<div class='yi-cell-meta'>{meta}</div>"
             "</div>"
         )
 
@@ -974,7 +1070,7 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
                     factory_count = factory_counts.get(iso, 0)
                     meal_count = factory_meals.get(iso, 0)
                     st.markdown(
-                        cell_html(day_num, dow, factory_count, meal_count, selected == iso),
+                        cell_html(day, day_num, dow, factory_count, meal_count, selected == iso),
                         unsafe_allow_html=True,
                     )
                     try:
@@ -999,7 +1095,7 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
     with right:
         st.markdown('<div class="yi-card">', unsafe_allow_html=True)
         if not st.session_state.get("selected_date"):
-            st.info("달력에서 특근일을 선택하세요. 토요일은 파란색입니다.")
+            st.info("달력에서 특근일을 선택하세요. 토요일은 파란색, 공휴일은 빨간색입니다.")
             st.markdown("</div>", unsafe_allow_html=True)
             return
         selected_day = date.fromisoformat(str(st.session_state["selected_date"]))
