@@ -12,11 +12,13 @@ showErrorDetails = "none"
 
 [theme]
 base = "light"
-textColor = "#111111"
+primaryColor = "#1a5fb4"
+textColor = "#1f2328"
 backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#e8f4fc"
+secondaryBackgroundColor = "#f6f8fa"
 
 [theme.dark]
-textColor = "#f4f6f8"
-backgroundColor = "#1b1d21"
-secondaryBackgroundColor = "#2b2f36"
+primaryColor = "#58a6ff"
+textColor = "#e6edf3"
+backgroundColor = "#0d1117"
+secondaryBackgroundColor = "#161b22"

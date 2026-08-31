@@ -53,20 +53,26 @@ _LOGO_CANDIDATES = (
 _PAGE_TEXT_CSS = """
 <style>
 :root, html[data-theme="light"], html:not([data-theme="dark"]) {
-    --yi-fg: #111111;
+    --yi-fg: #1f2328;
     --yi-bg: #ffffff;
+    --yi-canvas: #ffffff;
     --yi-input-bg: #ffffff;
-    --yi-input-fg: #111111;
-    --yi-muted: #3d4a57;
-    --yi-border: #d7e3ef;
+    --yi-input-fg: #1f2328;
+    --yi-muted: #656d76;
+    --yi-border: #d0d7de;
+    --yi-btn-bg: #f6f8fa;
+    --yi-btn-fg: #1f2328;
 }
 html[data-theme="dark"] {
-    --yi-fg: #f4f6f8;
-    --yi-bg: #1b1d21;
-    --yi-input-bg: #2b2f36;
-    --yi-input-fg: #f4f6f8;
-    --yi-muted: #c5ccd4;
-    --yi-border: #3d4450;
+    --yi-fg: #e6edf3;
+    --yi-bg: #0d1117;
+    --yi-canvas: #161b22;
+    --yi-input-bg: #0d1117;
+    --yi-input-fg: #e6edf3;
+    --yi-muted: #8b949e;
+    --yi-border: #30363d;
+    --yi-btn-bg: #21262d;
+    --yi-btn-fg: #e6edf3;
 }
 html:not([data-theme="dark"]),
 html:not([data-theme="dark"]) body,
@@ -74,6 +80,7 @@ html:not([data-theme="dark"]) .stApp,
 html:not([data-theme="dark"]) [data-testid="stAppViewContainer"] {
     color-scheme: light !important;
     color: var(--yi-fg);
+    background: var(--yi-bg);
 }
 html[data-theme="dark"],
 html[data-theme="dark"] body,
@@ -99,138 +106,106 @@ html[data-theme="dark"] .block-container {
 .stHeading, .stHeading *,
 .stCaption, .stCaption *,
 h1, h2, h3, h4, h5, h6,
-[data-testid="stRadio"] label,
-[data-testid="stCheckbox"] label,
+[data-testid="stMarkdown"] p,
+[data-testid="stMarkdown"] li,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
 [data-testid="stExpander"] summary,
 [data-testid="stMetric"] label,
-[data-testid="stTabs"] button {
+[data-testid="stTabs"] button,
+[data-testid="stAlert"] p {
     color: var(--yi-fg) !important;
     opacity: 1 !important;
 }
-html:not([data-theme="dark"]) [data-testid="stHeading"] *,
-html:not([data-theme="dark"]) [data-testid="stWidgetLabel"] * {
-    color: #000000 !important;
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] p,
+[data-testid="stRadio"] span,
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"],
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"] span,
+[data-testid="stCheckbox"] label,
+[data-testid="stCheckbox"] p,
+[data-testid="stCheckbox"] span {
+    color: var(--yi-fg) !important;
+    -webkit-text-fill-color: var(--yi-fg) !important;
+    opacity: 1 !important;
 }
-html[data-theme="dark"] [data-testid="stHeading"] *,
-html[data-theme="dark"] [data-testid="stWidgetLabel"] *,
-html[data-theme="dark"] [data-testid="stCaption"] * {
-    color: #f4f6f8 !important;
-}
-[data-testid="stButton"] button[kind="primary"],
+button[kind="primary"],
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-primaryFormSubmit"],
 [data-testid="stFormSubmitButton"] button,
 [data-testid="stDownloadButton"] button,
-[data-testid="stFileUploader"] button,
-[data-testid="stCameraInput"] button {
+[data-testid="stFileUploader"] button {
     background-color: #1a5fb4 !important;
     border: 1px solid #1a5fb4 !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
-[data-testid="stButton"] button[kind="primary"] *,
+button[kind="primary"] *,
+[data-testid="stBaseButton-primary"] *,
+[data-testid="stBaseButton-primaryFormSubmit"] *,
 [data-testid="stFormSubmitButton"] button *,
 [data-testid="stDownloadButton"] button *,
-[data-testid="stFileUploader"] button *,
-[data-testid="stCameraInput"] button * {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-}
-[data-testid="stButton"] button[kind="secondary"] {
-    background-color: #ffffff !important;
-    border: 1px solid #d7e3ef !important;
-    color: #1a365d !important;
-    -webkit-text-fill-color: #1a365d !important;
-}
-[data-testid="stButton"] button[kind="secondary"] * {
-    color: #1a365d !important;
-    -webkit-text-fill-color: #1a365d !important;
-}
-[data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-primaryFormSubmit"] {
-    background-color: #1a5fb4 !important;
-    border: 1px solid #1a5fb4 !important;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-}
-[data-testid="stBaseButton-primary"] p,
-[data-testid="stBaseButton-primary"] span,
-[data-testid="stBaseButton-primaryFormSubmit"] p,
-[data-testid="stBaseButton-primaryFormSubmit"] span {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    background: transparent !important;
-}
-[data-testid="stBaseButton-secondary"],
-[data-testid="stBaseButton-secondaryFormSubmit"] {
-    background-color: #ffffff !important;
-    border: 1px solid #d7e3ef !important;
-    color: #1a365d !important;
-    -webkit-text-fill-color: #1a365d !important;
-}
-[data-testid="stBaseButton-secondary"] p,
-[data-testid="stBaseButton-secondary"] span,
-[data-testid="stBaseButton-secondaryFormSubmit"] p,
-[data-testid="stBaseButton-secondaryFormSubmit"] span {
-    color: #1a365d !important;
-    -webkit-text-fill-color: #1a365d !important;
-    background: transparent !important;
-}
-html[data-theme="dark"] [data-testid="stBaseButton-secondary"],
-html[data-theme="dark"] [data-testid="stBaseButton-secondaryFormSubmit"] {
-    background-color: #2b2f36 !important;
-    border-color: #3d4450 !important;
-    color: #f4f6f8 !important;
-    -webkit-text-fill-color: #f4f6f8 !important;
-}
-html[data-theme="dark"] [data-testid="stBaseButton-secondary"] p,
-html[data-theme="dark"] [data-testid="stBaseButton-secondary"] span,
-html[data-theme="dark"] [data-testid="stBaseButton-secondaryFormSubmit"] p {
-    color: #f4f6f8 !important;
-    -webkit-text-fill-color: #f4f6f8 !important;
-    background: transparent !important;
-}
-html[data-theme="dark"] [data-testid="stButton"] button[kind="secondary"] {
-    background-color: #2b2f36 !important;
-    border-color: #3d4450 !important;
-    color: #f4f6f8 !important;
-    -webkit-text-fill-color: #f4f6f8 !important;
-}
-html[data-theme="dark"] [data-testid="stButton"] button[kind="secondary"] * {
-    color: #f4f6f8 !important;
-    -webkit-text-fill-color: #f4f6f8 !important;
-}
-div[class*="st-key-yi_nav"] [data-testid="stButton"] button,
-div[class*="st-key-yi_nav"] [data-testid="stButton"] button *,
-div[class*="st-key-yi_nav"] [data-testid="stBaseButton-secondary"],
-div[class*="st-key-yi_nav"] [data-testid="stBaseButton-secondary"] * {
+[data-testid="stFileUploader"] button * {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    color: #5b6b7c !important;
-    -webkit-text-fill-color: #5b6b7c !important;
-}
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] [data-testid="stBaseButton-secondary"],
-[data-testid="stFileUploader"] [data-testid="stBaseButton-primary"] {
-    background-color: #1a5fb4 !important;
-    border: 1px solid #1a5fb4 !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
-[data-testid="stFileUploader"] button *,
-[data-testid="stFileUploader"] [data-testid="stBaseButton-secondary"] *,
-[data-testid="stFileUploader"] [data-testid="stBaseButton-primary"] * {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
+button[kind="secondary"],
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-secondaryFormSubmit"] {
+    background-color: var(--yi-btn-bg) !important;
+    border: 1px solid var(--yi-border) !important;
+    color: var(--yi-btn-fg) !important;
+    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+}
+button[kind="secondary"] *,
+[data-testid="stBaseButton-secondary"] *,
+[data-testid="stBaseButton-secondaryFormSubmit"] * {
     background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: var(--yi-btn-fg) !important;
+    -webkit-text-fill-color: var(--yi-btn-fg) !important;
 }
-div[class*="st-key-yi_user"] [data-testid="stButton"] button,
-div[class*="st-key-yi_user"] [data-testid="stButton"] button *,
-div[class*="st-key-yi_user"] [data-testid="stBaseButton-secondary"],
-div[class*="st-key-yi_user"] [data-testid="stBaseButton-secondary"] * {
-    background: #ffffff !important;
-    border: 1px solid #d7e3ef !important;
-    color: #3d4f63 !important;
-    -webkit-text-fill-color: #3d4f63 !important;
+div[class*="st-key-yi_nav"] button,
+div[class*="st-key-yi_nav"] button * {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--yi-muted) !important;
+    -webkit-text-fill-color: var(--yi-muted) !important;
+}
+div[class*="st-key-yi_nav"] button {
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+}
+div[class*="st-key-yi_user"] button {
+    background-color: var(--yi-btn-bg) !important;
+    border: 1px solid var(--yi-border) !important;
+    color: var(--yi-btn-fg) !important;
+    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+}
+div[class*="st-key-yi_user"] button * {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: var(--yi-btn-fg) !important;
+    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_topbar"],
+html[data-theme="dark"] .yi-card {
+    background: var(--yi-canvas) !important;
+    border-color: var(--yi-border) !important;
+    box-shadow: none !important;
+}
+.yi-hello, .yi-hello * {
+    color: var(--yi-fg) !important;
+    -webkit-text-fill-color: var(--yi-fg) !important;
 }
 html:not([data-theme="dark"]) input,
 html:not([data-theme="dark"]) textarea,
@@ -250,19 +225,14 @@ html[data-theme="dark"] select {
 [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
 [data-testid="stTextArea"] [data-baseweb="textarea"] {
     background-color: var(--yi-input-bg) !important;
-    border: 1px solid #c5d4e3 !important;
-    border-radius: 8px !important;
+    border: 1px solid var(--yi-border) !important;
+    border-radius: 6px !important;
     box-shadow: none !important;
     overflow: hidden !important;
+    min-height: 38px !important;
 }
-html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="input"],
-html[data-theme="dark"] [data-testid="stNumberInput"] [data-baseweb="input"],
-html[data-theme="dark"] [data-testid="stDateInput"] [data-baseweb="input"],
-html[data-theme="dark"] [data-testid="stTimeInput"] [data-baseweb="input"],
-html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"] {
-    background-color: var(--yi-input-bg) !important;
-    border: 1px solid #3d4450 !important;
+[data-testid="stTextArea"] [data-baseweb="textarea"] {
+    min-height: 96px !important;
 }
 [data-testid="stTextInput"] [data-baseweb="base-input"],
 [data-testid="stTextInput"] [data-baseweb="base-input"] > div,
@@ -270,12 +240,9 @@ html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"] {
 [data-testid="stDateInput"] [data-baseweb="base-input"],
 [data-testid="stTimeInput"] [data-baseweb="base-input"],
 [data-testid="stTextArea"] [data-baseweb="base-input"],
-[data-testid="stTextArea"] [data-baseweb="base-input"] > div,
-[data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div {
     background: transparent !important;
-    background-color: transparent !important;
     border: none !important;
-    border-width: 0 !important;
     box-shadow: none !important;
     outline: none !important;
 }
@@ -290,18 +257,37 @@ html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"] {
     -webkit-appearance: none !important;
     appearance: none !important;
     background: transparent !important;
-    background-color: transparent !important;
     color: var(--yi-input-fg) !important;
     -webkit-text-fill-color: var(--yi-input-fg) !important;
     caret-color: var(--yi-input-fg) !important;
     border: none !important;
-    border-width: 0 !important;
     outline: none !important;
     box-shadow: none !important;
 }
+[data-testid="stSelectbox"] [data-baseweb="select"] span,
+[data-testid="stSelectbox"] [data-baseweb="select"] p,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] span {
+    color: var(--yi-input-fg) !important;
+    -webkit-text-fill-color: var(--yi-input-fg) !important;
+    background: transparent !important;
+}
+[data-testid="stSelectbox"] svg,
+[data-testid="stDateInput"] svg,
+[data-testid="stTimeInput"] svg {
+    fill: var(--yi-muted) !important;
+    color: var(--yi-muted) !important;
+}
+[data-baseweb="menu"],
+[data-baseweb="popover"],
+[data-baseweb="menu"] li,
+ul[role="listbox"] li {
+    background-color: var(--yi-canvas) !important;
+    color: var(--yi-fg) !important;
+    -webkit-text-fill-color: var(--yi-fg) !important;
+}
 [data-testid="stTextArea"] textarea::placeholder,
 [data-testid="stTextInput"] input::placeholder,
-[data-testid="stChatInput"] textarea::placeholder,
 textarea::placeholder,
 input::placeholder {
     color: var(--yi-muted) !important;
@@ -309,40 +295,8 @@ input::placeholder {
     opacity: 1 !important;
 }
 [data-testid="InputInstructions"],
-[data-testid="InputInstructions"] *,
-[data-testid="stTextArea"] small {
+[data-testid="InputInstructions"] * {
     color: var(--yi-muted) !important;
-}
-html[data-theme="dark"] [data-testid="stExpander"] details,
-html[data-theme="dark"] [data-testid="stTabs"] button,
-html[data-theme="dark"] [data-testid="stSelectbox"] svg,
-html[data-theme="dark"] [data-testid="stDateInput"] svg,
-html[data-theme="dark"] [data-testid="stTimeInput"] svg,
-html[data-theme="dark"] [data-testid="stNumberInput"] button {
-    color: var(--yi-fg) !important;
-    fill: var(--yi-fg) !important;
-}
-html[data-theme="dark"] .yi-day,
-html[data-theme="dark"] .yi-cell-num,
-html[data-theme="dark"] .yi-hello,
-html[data-theme="dark"] .yi-hello * {
-    color: var(--yi-fg) !important;
-    -webkit-text-fill-color: var(--yi-fg) !important;
-}
-html[data-theme="dark"] div[class*="st-key-yi_topbar"],
-html[data-theme="dark"] .yi-card,
-html[data-theme="dark"] .yi-metric,
-html[data-theme="dark"] div[data-testid="stMetric"] {
-    background: #242830 !important;
-    border-color: #3d4450 !important;
-}
-html[data-theme="dark"] div[class*="st-key-yi_nav"] button {
-    color: #c5ccd4 !important;
-}
-html[data-theme="dark"] div[class*="st-key-yi_user"] button {
-    background: #2b2f36 !important;
-    color: #f4f6f8 !important;
-    border-color: #3d4450 !important;
 }
 div[class*="st-key-cal_today"] {
     display: none !important;

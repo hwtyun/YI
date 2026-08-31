@@ -211,13 +211,18 @@ iframe[title="streamlit_menu"] {
 }
 .block-container { padding-top: 0.45rem; padding-bottom: 2.4rem; max-width: 1280px; }
 div[class*="st-key-yi_topbar"] {
-    background: #fff;
-    border: 1px solid #e6eef6;
+    background: var(--yi-canvas, #fff);
+    border: 1px solid var(--yi-border, #e6eef6);
     border-radius: 14px;
     padding: 2px 14px 2px 10px !important;
     margin-bottom: 14px;
     box-shadow: 0 8px 24px rgba(26, 54, 93, 0.06);
     width: 100% !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_topbar"] {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+    box-shadow: none !important;
 }
 .yi-spacer { display: none; }
 div[class*="st-key-yi_topbar"] > div[data-testid="stHorizontalBlock"],
@@ -337,6 +342,24 @@ div[class*="st-key-yi_user"] button {
     font-weight: 600 !important;
     color: #3d4f63 !important;
 }
+div[class*="st-key-yi_user"] button * {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #3d4f63 !important;
+    -webkit-text-fill-color: #3d4f63 !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_user"] button {
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #e6edf3 !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_user"] button * {
+    background: transparent !important;
+    border: none !important;
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3 !important;
+}
 div[class*="st-key-yi_user"] button:hover {
     color: #1a5fb4 !important;
     border-color: #1a5fb4 !important;
@@ -383,16 +406,14 @@ div[data-testid="stButton"] > button[kind="primary"] *,
 [data-testid="stFormSubmitButton"] button *,
 [data-testid="stDownloadButton"] button *,
 [data-testid="stFileUploader"] button * {
+    background: transparent !important;
+    border: none !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
-div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #fff !important;
-    color: #1a365d !important;
-    -webkit-text-fill-color: #1a365d !important;
-    border: 1px solid #d7e3ef !important;
-}
 div[data-testid="stButton"] > button[kind="secondary"] * {
+    background: transparent !important;
+    border: none !important;
     color: #1a365d !important;
     -webkit-text-fill-color: #1a365d !important;
 }
@@ -531,8 +552,34 @@ html[data-theme="dark"] select {
 html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="input"],
 html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"],
 html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-    background-color: #2b2f36 !important;
-    border: 1px solid #3d4450 !important;
+    background-color: #0d1117 !important;
+    border: 1px solid #30363d !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] span,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
+    color: #1f2328 !important;
+    -webkit-text-fill-color: #1f2328 !important;
+    background: transparent !important;
+}
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] span,
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stTextArea"] textarea {
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3 !important;
+}
+[data-testid="stRadio"] p,
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+    color: #1f2328 !important;
+    -webkit-text-fill-color: #1f2328 !important;
+    opacity: 1 !important;
+}
+html[data-theme="dark"] [data-testid="stRadio"] p,
+html[data-theme="dark"] [data-testid="stRadio"] label,
+html[data-theme="dark"] [data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3 !important;
 }
 [data-testid="stTextInput"] [data-baseweb="base-input"],
 [data-testid="stTextInput"] [data-baseweb="base-input"] > div,

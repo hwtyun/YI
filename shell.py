@@ -230,8 +230,8 @@ def render_top_nav(username: str, authenticator) -> str:
     if current in allowed:
         st.markdown(
             f"<style>div[class*='st-key-yi_nav_{current}'] button {{"
-            "color:#1a365d !important;font-weight:700 !important;"
-            "border-bottom-color:#c41e3a !important;}}</style>",
+            "color:var(--yi-fg,#1a365d) !important;font-weight:700 !important;"
+            "border-bottom:2px solid #c41e3a !important;}}</style>",
             unsafe_allow_html=True,
         )
     return str(st.session_state.get("nav", current))
