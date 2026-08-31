@@ -1566,6 +1566,277 @@ def _install_hq_page_patch() -> None:
         pass
 
 
+def _update_survey_fallback(
+    username,
+    survey_id,
+    title,
+    period_start,
+    period_end,
+    deadline_at,
+    schema=None,
+):
+    import json
+
+    from src.config import ROLE_ADMIN, primary_role
+    from src.db import get_connection
+    from src.store import AccessDenied, get_survey_by_id
+
+    if primary_role(username) != ROLE_ADMIN:
+        raise AccessDenied("관리자만 조사를 수정할 수 있습니다.")
+    title_value = str(title or "").strip()
+    if not title_value:
+        raise ValueError("제목을 입력하세요.")
+    if str(period_end) < str(period_start):
+        raise ValueError("종료일은 시작일보다 빠를 수 없습니다.")
+    survey = get_survey_by_id(survey_id)
+    if survey is None:
+        raise ValueError("조사를 찾을 수 없습니다.")
+    fields = [title_value, period_start, period_end, deadline_at]
+    sql = "UPDATE surveys SET title = ?, period_start = ?, period_end = ?, deadline_at = ?"
+    if schema is not None and str(survey.get("kind") or "") == "generic":
+        from src.schema import normalize_schema, slim_schema
+
+        sql += ", schema_json = ?"
+        fields.append(json.dumps(slim_schema(normalize_schema(schema)), ensure_ascii=False))
+    sql += " WHERE id = ?"
+    fields.append(survey_id)
+    conn = get_connection()
+    try:
+        conn.execute(sql, tuple(fields))
+        conn.commit()
+    finally:
+        conn.close()
+    return get_survey_by_id(survey_id)
+
+
+def _render_survey_edit_live(username: str, survey: dict) -> None:
+    from datetime import datetime, time
+
+    import pandas as pd
+
+    from src.schema import empty_schema, is_generic
+    from src.store import AccessDenied
+
+    try:
+        from src.store import update_survey as save_survey
+    except Exception:
+        save_survey = _update_survey_fallback
+
+    labels = {"text": "텍스트", "number": "숫자", "date": "날짜"}
+    values = {value: key for key, value in labels.items()}
+    survey_id = int(survey["id"])
+    generic = is_generic(survey)
+    schema = survey.get("schema") or empty_schema(str(survey.get("title") or ""))
+
+    def as_date(value):
+        text = str(value or "")[:10]
+        try:
+            return datetime.strptime(text, "%Y-%m-%d").date()
+        except ValueError:
+            return datetime.now().date()
+
+    def as_time(value):
+        text = str(value or "")
+        clock = text.split("T", 1)[1][:8] if "T" in text else "11:00:00"
+        parts = (clock + ":00:00").split(":")
+        try:
+            return time(int(parts[0]), int(parts[1]))
+        except (TypeError, ValueError):
+            return time(11, 0)
+
+    st.markdown("**조사 수정**")
+    st.caption("배포된 조사도 제목·안내·양식·기간을 고칠 수 있습니다. 이미 입력한 값은 그대로 둡니다.")
+    title = st.text_input("제목", value=str(survey.get("title") or ""), key=f"edit_title_{survey_id}")
+    period_start = st.date_input("조사 시작일", value=as_date(survey.get("period_start")), key=f"edit_start_{survey_id}")
+    period_end = st.date_input("조사 종료일", value=as_date(survey.get("period_end")), key=f"edit_end_{survey_id}")
+    due_date = st.date_input("마감일", value=as_date(survey.get("deadline_at")), key=f"edit_due_date_{survey_id}")
+    due_time = st.time_input("마감 시각", value=as_time(survey.get("deadline_at")), key=f"edit_due_time_{survey_id}")
+    schema_payload = None
+    if generic:
+        instructions = st.text_area("내용", value=str(schema.get("instructions") or ""), key=f"edit_help_{survey_id}")
+        column_rows = [
+            {
+                "항목명": item.get("label") or "",
+                "형식": labels.get(str(item.get("type") or "text"), "텍스트"),
+                "필수": bool(item.get("required", True)),
+            }
+            for item in schema.get("columns") or []
+        ] or [{"항목명": "", "형식": "텍스트", "필수": True}]
+        edited = st.data_editor(
+            pd.DataFrame(column_rows),
+            num_rows="dynamic",
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "항목명": st.column_config.TextColumn("항목명"),
+                "형식": st.column_config.SelectboxColumn("형식", options=list(labels.values())),
+                "필수": st.column_config.CheckboxColumn("필수", default=True),
+            },
+            key=f"edit_cols_{survey_id}",
+        )
+        raw_columns = []
+        for _, row in edited.iterrows():
+            label = str(row.get("항목명") or "").strip()
+            if label:
+                raw_columns.append(
+                    {
+                        "label": label,
+                        "type": values.get(str(row.get("형식") or "텍스트"), "text"),
+                        "required": bool(row.get("필수")),
+                    }
+                )
+        schema_payload = {"title": title.strip(), "instructions": instructions.strip(), "columns": raw_columns}
+    else:
+        st.caption("특근 조사는 제목과 기간만 고칩니다. 입력 칸은 달력 화면을 씁니다.")
+    if st.button("수정 저장", type="primary", key=f"edit_save_{survey_id}"):
+        try:
+            if period_end < period_start:
+                st.error("종료일은 시작일보다 빠를 수 없습니다.")
+                return
+            save_survey(
+                username,
+                survey_id,
+                title.strip() or str(survey.get("title") or ""),
+                period_start.isoformat(),
+                period_end.isoformat(),
+                datetime.combine(due_date, due_time).strftime("%Y-%m-%dT%H:%M:%S"),
+                schema=schema_payload,
+            )
+            st.success("조사를 수정했습니다. 팀 화면에도 바로 반영됩니다.")
+            st.rerun()
+        except (ValueError, AccessDenied) as exc:
+            st.error(str(exc))
+
+
+def _install_survey_edit_patch() -> None:
+    try:
+        import src.store as store_mod
+
+        if not hasattr(store_mod, "update_survey"):
+            store_mod.update_survey = _update_survey_fallback
+    except Exception:
+        pass
+    try:
+        import src.views.admin as admin_mod
+
+        original = admin_mod._render_survey_manager
+
+        def wrapped(username: str) -> None:
+            original(username)
+            # Old Cloud admin has no edit block; append nothing if already present.
+
+        if hasattr(admin_mod, "_render_survey_edit"):
+            return
+        admin_mod._render_survey_edit = _render_survey_edit_live
+        from datetime import datetime, time as time_cls
+
+        from src.config import SUBMITTING_TEAMS, get_user
+        from src.excel_io import build_generic_workbook, build_overtime_workbook
+        from src.schedule import default_deadline, default_overtime_weekend, default_survey_title
+        from src.schema import entry_schema, is_generic
+        from src.store import (
+            create_survey,
+            list_entries,
+            list_responses,
+            list_submissions,
+            list_surveys,
+        )
+
+        def manager(username: str) -> None:
+            saturday, sunday = default_overtime_weekend()
+            st.subheader("새 조사 생성")
+            with st.form("create_survey_form"):
+                title = st.text_input("조사 제목", value=default_survey_title(saturday))
+                start_col, end_col = st.columns(2)
+                with start_col:
+                    period_start = st.date_input("조사 시작일", value=saturday)
+                with end_col:
+                    period_end = st.date_input("조사 종료일", value=sunday)
+                default_due = default_deadline(period_start if period_start.weekday() == 5 else saturday)
+                due_date = st.date_input("마감일", value=default_due.date())
+                due_time = st.time_input("마감 시각", value=time_cls(11, 0))
+                created = st.form_submit_button("조사 생성")
+            if created:
+                if period_end < period_start:
+                    st.error("종료일은 시작일보다 빠를 수 없습니다.")
+                else:
+                    survey_id = create_survey(
+                        username,
+                        title.strip() or default_survey_title(period_start),
+                        period_start.isoformat(),
+                        period_end.isoformat(),
+                        datetime.combine(due_date, due_time).strftime("%Y-%m-%dT%H:%M:%S"),
+                    )
+                    st.success(f"조사를 만들었습니다. 아래 목록에서 확인한 뒤 배포하세요. (번호 {survey_id})")
+            surveys = list_surveys(username)
+            published = sum(1 for item in surveys if item["is_published"])
+            st.subheader("조사 목록")
+            st.caption(f"저장 {len(surveys)}건 · 배포 {published}건 · 취합 대상: {' · '.join(SUBMITTING_TEAMS)}")
+            if not surveys:
+                st.info("아직 조사가 없습니다. 위에서 이번 주 조사를 생성하세요.")
+                return
+            for survey in surveys:
+                status = "배포됨" if survey["is_published"] else "대기(미배포)"
+                kind_label = "범용" if is_generic(survey) else "특근"
+                with st.expander(f"[{status}] [{kind_label}] {survey['title']}", expanded=True):
+                    st.write(
+                        f"기간 {survey['period_start']} ~ {survey['period_end']} · 마감 {survey['deadline_at']}"
+                    )
+                    _render_survey_edit_live(username, survey)
+                    if survey["is_published"]:
+                        st.success("팀이 입력할 수 있습니다.")
+                        subs = list_submissions(username, int(survey["id"]))
+                        done = sum(1 for item in subs if item["is_submitted"])
+                        st.caption(f"제출 {done}/{len(SUBMITTING_TEAMS)} · 상세는 「제출 현황 · 취합」 탭에서 검토합니다.")
+                        if is_generic(survey):
+                            all_rows = list_responses(username, int(survey["id"]))
+                            st.download_button(
+                                "전체 팀 원본 엑셀 받기",
+                                data=build_generic_workbook(
+                                    str(survey["title"]),
+                                    entry_schema(survey.get("schema") or {"columns": []}),
+                                    [
+                                        {
+                                            "source_team": item.get("team"),
+                                            "team": item.get("team"),
+                                            **(item.get("payload") or {}),
+                                        }
+                                        for item in all_rows
+                                    ],
+                                ),
+                                file_name=f"{survey['title']}_원본.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"dl_admin_{survey['id']}",
+                            )
+                            if get_user(username)["team"]:
+                                st.markdown("**생산관리팀 입력**")
+                                _render_hq_generic_editor(username, str(get_user(username)["team"]), survey)
+                        else:
+                            all_entries = list_entries(username, int(survey["id"]))
+                            st.download_button(
+                                "전체 팀 원본 엑셀 받기",
+                                data=build_overtime_workbook(
+                                    str(survey["title"]), all_entries, include_source_team=True
+                                ),
+                                file_name=f"{survey['title']}_원본.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"dl_admin_{survey['id']}",
+                            )
+                    else:
+                        if st.button("배포", key=f"publish_btn_{survey['id']}"):
+                            st.session_state["pending_publish_id"] = survey["id"]
+                            st.rerun()
+            pending_id = st.session_state.get("pending_publish_id")
+            if pending_id:
+                pending = next((item for item in surveys if item["id"] == pending_id), None)
+                if pending:
+                    admin_mod._confirm_publish_dialog(username, pending)
+
+        admin_mod._render_survey_manager = manager
+    except Exception:
+        pass
+
+
 def _render_app(authenticator) -> None:
     st.session_state.pop("_yi_excel_roster_shown", None)
     _install_calendar_nav_patch()
@@ -1573,6 +1844,7 @@ def _render_app(authenticator) -> None:
     _install_ai_schema_patch()
     _install_generic_editor_patch()
     _install_hq_page_patch()
+    _install_survey_edit_patch()
     from src.views.shell import render_signed_in
 
     _inject_css(_PAGE_TEXT_CSS)

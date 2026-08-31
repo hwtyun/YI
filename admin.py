@@ -8,8 +8,9 @@ from src.auth import PASSWORD_RULE_HELP, reset_user_password_by_admin
 from src.config import SUBMITTING_TEAMS, get_user
 from src.excel_io import build_generic_workbook, build_overtime_workbook
 from src.schedule import default_deadline, default_overtime_weekend, default_survey_title
-from src.schema import is_generic
+from src.schema import empty_schema, entry_schema, is_generic
 from src.store import (
+    AccessDenied,
     create_survey,
     list_accounts,
     list_entries,
@@ -17,6 +18,7 @@ from src.store import (
     list_submissions,
     list_surveys,
     publish_survey,
+    update_survey,
 )
 from src.views.generic_builder import render_generic_builder
 from src.views.generic_editor import render_generic_editor
@@ -27,6 +29,127 @@ ROLE_LABELS = {
     "director": "공장장",
     "team": "팀 담당자",
 }
+TYPE_LABELS = {"text": "텍스트", "number": "숫자", "date": "날짜"}
+TYPE_VALUES = {value: key for key, value in TYPE_LABELS.items()}
+
+
+def _as_date(value) -> datetime:
+    from datetime import date as date_cls
+
+    text = str(value or "")[:10]
+    try:
+        return datetime.strptime(text, "%Y-%m-%d")
+    except ValueError:
+        return datetime.combine(date_cls.today(), time.min)
+
+
+def _as_time(value) -> time:
+    text = str(value or "")
+    clock = text.split("T", 1)[1][:8] if "T" in text else "11:00:00"
+    parts = (clock + ":00:00").split(":")
+    try:
+        return time(int(parts[0]), int(parts[1]))
+    except (TypeError, ValueError):
+        return time(11, 0)
+
+
+def _render_survey_edit(username: str, survey: dict) -> None:
+    import pandas as pd
+
+    survey_id = int(survey["id"])
+    generic = is_generic(survey)
+    schema = survey.get("schema") or empty_schema(str(survey.get("title") or ""))
+    st.markdown("**조사 수정**")
+    st.caption("배포된 조사도 제목·안내·양식·기간을 고칠 수 있습니다. 이미 입력한 값은 그대로 둡니다.")
+    title = st.text_input("제목", value=str(survey.get("title") or ""), key=f"edit_title_{survey_id}")
+    period_start = st.date_input(
+        "조사 시작일",
+        value=_as_date(survey.get("period_start")).date(),
+        key=f"edit_start_{survey_id}",
+    )
+    period_end = st.date_input(
+        "조사 종료일",
+        value=_as_date(survey.get("period_end")).date(),
+        key=f"edit_end_{survey_id}",
+    )
+    due_date = st.date_input(
+        "마감일",
+        value=_as_date(survey.get("deadline_at")).date(),
+        key=f"edit_due_date_{survey_id}",
+    )
+    due_time = st.time_input(
+        "마감 시각",
+        value=_as_time(survey.get("deadline_at")),
+        key=f"edit_due_time_{survey_id}",
+    )
+    schema_payload = None
+    if generic:
+        instructions = st.text_area(
+            "내용",
+            value=str(schema.get("instructions") or ""),
+            key=f"edit_help_{survey_id}",
+        )
+        column_rows = [
+            {
+                "항목명": item.get("label") or "",
+                "형식": TYPE_LABELS.get(str(item.get("type") or "text"), "텍스트"),
+                "필수": bool(item.get("required", True)),
+            }
+            for item in schema.get("columns") or []
+        ]
+        if not column_rows:
+            column_rows = [{"항목명": "", "형식": "텍스트", "필수": True}]
+        edited = st.data_editor(
+            pd.DataFrame(column_rows),
+            num_rows="dynamic",
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "항목명": st.column_config.TextColumn("항목명"),
+                "형식": st.column_config.SelectboxColumn("형식", options=list(TYPE_LABELS.values())),
+                "필수": st.column_config.CheckboxColumn("필수", default=True),
+            },
+            key=f"edit_cols_{survey_id}",
+        )
+        raw_columns = []
+        for _, row in edited.iterrows():
+            label = str(row.get("항목명") or "").strip()
+            if not label:
+                continue
+            raw_columns.append(
+                {
+                    "label": label,
+                    "type": TYPE_VALUES.get(str(row.get("형식") or "텍스트"), "text"),
+                    "required": bool(row.get("필수")),
+                }
+            )
+        schema_payload = {
+            "title": title.strip(),
+            "instructions": instructions.strip(),
+            "columns": raw_columns,
+        }
+    else:
+        st.caption("특근 조사는 제목과 기간만 고칩니다. 입력 칸은 달력 화면을 씁니다.")
+
+    if st.button("수정 저장", type="primary", key=f"edit_save_{survey_id}"):
+        try:
+            if period_end < period_start:
+                st.error("종료일은 시작일보다 빠를 수 없습니다.")
+                return
+            deadline_at = datetime.combine(due_date, due_time).strftime("%Y-%m-%dT%H:%M:%S")
+            update_survey(
+                username,
+                survey_id,
+                title.strip() or str(survey.get("title") or ""),
+                period_start.isoformat(),
+                period_end.isoformat(),
+                deadline_at,
+                schema=schema_payload,
+            )
+            st.success("조사를 수정했습니다. 팀 화면에도 바로 반영됩니다.")
+            st.rerun()
+        except (ValueError, AccessDenied) as exc:
+            st.error(str(exc))
 
 
 def render_admin_home(username: str) -> None:
@@ -92,10 +215,11 @@ def _render_survey_manager(username: str) -> None:
     for survey in surveys:
         status = "배포됨" if survey["is_published"] else "대기(미배포)"
         kind_label = "범용" if is_generic(survey) else "특근"
-        with st.expander(f"[{status}] [{kind_label}] {survey['title']}", expanded=not survey["is_published"]):
+        with st.expander(f"[{status}] [{kind_label}] {survey['title']}", expanded=True):
             st.write(
                 f"기간 {survey['period_start']} ~ {survey['period_end']} · 마감 {survey['deadline_at']}"
             )
+            _render_survey_edit(username, survey)
             if survey["is_published"]:
                 st.success("팀이 입력할 수 있습니다.")
                 subs = list_submissions(username, int(survey["id"]))
@@ -107,7 +231,7 @@ def _render_survey_manager(username: str) -> None:
                         "전체 팀 원본 엑셀 받기",
                         data=build_generic_workbook(
                             str(survey["title"]),
-                            survey.get("schema") or {"columns": []},
+                            entry_schema(survey.get("schema") or {"columns": []}),
                             [
                                 {"source_team": item.get("team"), "team": item.get("team"), **(item.get("payload") or {})}
                                 for item in all_rows
