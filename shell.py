@@ -151,10 +151,13 @@ def render_signed_in(username: str, authenticator) -> None:
         return
     if nav == NAV_ADMIN and role != ROLE_DIRECTOR:
         from src.views.admin import render_admin_tools
+        from src.views.roster import render_roster_manager
         from src.views.roster_edit import render_team_roster_editor
 
         st.header("관리자메뉴")
-        render_team_roster_editor(username)
         if role == ROLE_ADMIN:
+            render_roster_manager(username)
             st.divider()
             render_admin_tools(username)
+        else:
+            render_team_roster_editor(username)
