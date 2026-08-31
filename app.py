@@ -17,7 +17,7 @@ from src.auth import get_authenticator, sign_in
 from src.config import USERS
 from src.db import init_db
 from src.secrets_util import missing_secret_names, render_secrets_help
-from src.theme import THEME_CSS, render_logo
+from src.theme import inject_theme, render_logo, render_login_caption, render_site_title
 from src.views.shell import render_signed_in
 
 st.set_page_config(
@@ -33,9 +33,9 @@ def _secrets_ready() -> bool:
     missing = missing_secret_names()
     if not missing:
         return True
-    st.markdown(THEME_CSS, unsafe_allow_html=True)
+    inject_theme()
     render_logo(160)
-    st.title(SITE_TITLE)
+    render_site_title()
     render_secrets_help(missing)
     return False
 
@@ -59,16 +59,17 @@ def _restore_cookie(authenticator) -> None:
 
 
 def _render_login(authenticator) -> None:
-    st.markdown(THEME_CSS, unsafe_allow_html=True)
-    render_logo(160)
-    st.title(SITE_TITLE)
-    st.caption("아이디로 로그인한 뒤 본인 화면만 사용합니다. 휴대폰에서도 입력할 수 있습니다.")
-    st.checkbox("로그인 상태 유지", value=True, key="remember_login")
+    inject_theme()
+    with st.container(key="yi_login"):
+        render_logo(160)
+        render_site_title()
+        render_login_caption()
+        st.checkbox("로그인 상태 유지", value=True, key="remember_login")
 
-    with st.form("yi_factory_login"):
-        username = st.text_input("아이디")
-        password = st.text_input("비밀번호", type="password", key="login_password")
-        submitted = st.form_submit_button("로그인", type="primary")
+        with st.form("yi_factory_login"):
+            username = st.text_input("아이디", key="login_username")
+            password = st.text_input("비밀번호", type="password", key="login_password")
+            submitted = st.form_submit_button("로그인", type="primary")
 
     if submitted:
         if sign_in(authenticator, username, password):

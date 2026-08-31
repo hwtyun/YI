@@ -32,39 +32,67 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
 .stApp {
     background: #f3f6fa;
     color: #000000;
-    --text-color: #000000;
+    color-scheme: light !important;
+    --text-color: #000000 !important;
+    --textColor: #000000 !important;
 }
-h1, h2, h3, h4, h5, h6,
-[data-testid="stHeading"],
-[data-testid="stHeading"] *,
-[data-testid="stCaption"],
-[data-testid="stCaption"] *,
-[data-testid="stCaptionContainer"],
-[data-testid="stCaptionContainer"] *,
-[data-testid="stWidgetLabel"],
-[data-testid="stWidgetLabel"] *,
-[data-testid="stCheckbox"] label,
-[data-testid="stCheckbox"] p,
-[data-testid="stCheckbox"] span {
+.yi-site-title, .yi-login-caption {
     color: #000000 !important;
     opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
 }
-div[class*="st-key-login_password"] [data-baseweb="input"],
-div[class*="st-key-login_password"] [data-baseweb="base-input"],
-div[class*="st-key-login_password"] input,
-[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) [data-baseweb="input"],
-[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) [data-baseweb="base-input"],
-[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) input {
+.yi-site-title {
+    font-weight: 700 !important;
+    font-size: 2rem !important;
+    margin: 0.15rem 0 0.4rem 0 !important;
+}
+.yi-login-caption {
+    font-size: 0.95rem !important;
+    margin: 0 0 0.7rem 0 !important;
+}
+div[class*="st-key-yi_login"] h1,
+div[class*="st-key-yi_login"] h2,
+div[class*="st-key-yi_login"] p,
+div[class*="st-key-yi_login"] label,
+div[class*="st-key-yi_login"] span,
+div[class*="st-key-yi_login"] [data-testid="stHeading"] *,
+div[class*="st-key-yi_login"] [data-testid="stCaption"] *,
+div[class*="st-key-yi_login"] [data-testid="stCaptionContainer"] *,
+div[class*="st-key-yi_login"] [data-testid="stWidgetLabel"],
+div[class*="st-key-yi_login"] [data-testid="stWidgetLabel"] *,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] p,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] span,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] label,
+div[class*="st-key-yi_login"] [data-testid="stMarkdown"] p {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] button,
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] p,
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] span {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] > div > div {
     background: #87CEEB !important;
     background-color: #87CEEB !important;
     color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
     caret-color: #000000 !important;
 }
-div[class*="st-key-login_password"] button,
-div[class*="st-key-login_password"] svg,
-[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) svg {
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] button,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] svg {
     color: #000000 !important;
     fill: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input:-webkit-autofill,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #87CEEB inset !important;
+    -webkit-text-fill-color: #000000 !important;
 }
 html[dir], body[dir], [dir="rtl"], [dir="auto"] {
     direction: ltr !important;
@@ -345,6 +373,33 @@ div[class*="st-key-yi_user"] button:hover {
 }
 </style>
 """
+
+
+def inject_theme() -> None:
+    try:
+        st.html(THEME_CSS)
+    except Exception:
+        st.markdown(THEME_CSS, unsafe_allow_html=True)
+
+
+def render_site_title() -> None:
+    st.markdown(
+        f'<h1 class="yi-site-title" style="color:#000000 !important;'
+        f'-webkit-text-fill-color:#000000 !important;opacity:1 !important;'
+        f'font-weight:700;font-size:2rem;margin:0.15rem 0 0.4rem 0;">'
+        f"{SITE_TITLE}</h1>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_login_caption() -> None:
+    st.markdown(
+        '<p class="yi-login-caption" style="color:#000000 !important;'
+        '-webkit-text-fill-color:#000000 !important;opacity:1 !important;'
+        'font-size:0.95rem;margin:0 0 0.7rem 0;">'
+        "아이디로 로그인한 뒤 본인 화면만 사용합니다. 휴대폰에서도 입력할 수 있습니다.</p>",
+        unsafe_allow_html=True,
+    )
 
 
 def logo_path() -> Path | None:
