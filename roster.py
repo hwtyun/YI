@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 import streamlit as st
 
 from src.config import COMPANIES, EMPLOYMENT_TYPES, ROLE_ADMIN, SUBMITTING_TEAMS, primary_role
@@ -33,7 +35,10 @@ def _employee_table(rows: list[dict]) -> None:
 
 def _render_admin_roster(username: str) -> None:
     st.subheader("재직인원 명부")
-    st.caption("양식을 받아 성명·회사·팀·고용형태를 적은 뒤, 같은 화면에서 엑셀을 올리면 전체 명부가 바뀝니다.")
+    st.caption(
+        "양식에 성명·회사·팀·고용형태를 적은 뒤 아래에서 엑셀만 올리면 바로 반영됩니다. "
+        "고용형태에 직급(이사·책임·선임·사원 등)을 적어도 정규직으로 저장합니다."
+    )
 
     current = list_employees(username)
     down_col, current_col = st.columns(2)
@@ -55,27 +60,26 @@ def _render_admin_roster(username: str) -> None:
             disabled=not current,
         )
 
+    st.session_state["_yi_excel_roster_shown"] = True
+
     uploaded = st.file_uploader("재직인원 엑셀 업로드", type=["xlsx"], key="up_roster")
     if uploaded is not None:
         parsed = parse_employee_roster(uploaded.getvalue())
         if parsed.errors:
-            st.error("아래 행은 반영되지 않습니다.")
-            for item in parsed.errors:
-                st.write(f"- {item}")
+            st.error("일부 행은 건너뛰었습니다.\n" + "\n".join(f"- {item}" for item in parsed.errors))
         if parsed.rows:
-            st.success(f"유효한 인원 {len(parsed.rows)}명")
-            _employee_table(parsed.rows)
-            replace_ok = st.checkbox("기존 명부를 이 파일로 바꿉니다", key="confirm_roster_replace")
-            if st.button("명부 반영", type="primary", key="apply_roster"):
-                if not replace_ok:
-                    st.error("확인 체크를 한 뒤에 반영해 주세요.")
-                else:
-                    try:
-                        count = replace_employee_roster(username, parsed.rows)
-                        st.success(f"명부 {count}명을 반영했습니다.")
-                        st.rerun()
-                    except AccessDenied as exc:
-                        st.error(str(exc))
+            sig = hashlib.sha256(uploaded.getvalue()).hexdigest()
+            if st.session_state.get("roster_file_sig") != sig:
+                try:
+                    count = replace_employee_roster(username, parsed.rows)
+                    st.session_state["roster_file_sig"] = sig
+                    st.success(f"재직인원 {count}명을 반영했습니다.")
+                    st.rerun()
+                except AccessDenied as exc:
+                    st.error(str(exc))
+            else:
+                st.success(f"반영된 인원 {len(parsed.rows)}명")
+                _employee_table(parsed.rows)
         elif not parsed.errors:
             st.warning("파일에서 인원을 읽지 못했습니다.")
 

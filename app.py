@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 try:
@@ -65,6 +66,19 @@ h1, h2, h3, h4, h5, h6 {
     color: #000000 !important;
     opacity: 1 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+[data-testid="stDownloadButton"] button {
+    background-color: #1f4e79 !important;
+    border-color: #1f4e79 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+}
+[data-testid="stDownloadButton"] button p,
+[data-testid="stDownloadButton"] button span,
+[data-testid="stDownloadButton"] button div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
 </style>
 """
@@ -224,17 +238,139 @@ def _render_login(authenticator) -> None:
     st.info("아이디와 비밀번호를 입력한 뒤 로그인하세요.")
 
 
+def _parse_roster_bytes(data: bytes) -> dict:
+    """성명·회사·팀·고용형태 양식. Cloud의 옛 src.config와 무관하게 동작한다."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    def fold(value: str) -> str:
+        return str(value or "").strip().replace(" ", "").replace("-", "").lower()
+
+    company_map = {
+        "에이텍모빌리티": "에이텍모빌리티",
+        "모빌리티": "에이텍모빌리티",
+        "aitechmobility": "에이텍모빌리티",
+        "atecmobility": "에이텍모빌리티",
+        "에이텍컴퓨터": "에이텍컴퓨터",
+        "컴퓨터": "에이텍컴퓨터",
+        "aitechcomputer": "에이텍컴퓨터",
+        "ateccomputer": "에이텍컴퓨터",
+    }
+    team_map = {
+        "구매팀": "구매팀",
+        "구매": "구매팀",
+        "제조팀": "제조팀",
+        "제조": "제조팀",
+        "생산관리팀": "생산관리팀",
+        "생산관리": "생산관리팀",
+        "용인공장": "생산관리팀",
+        "공장": "생산관리팀",
+        "품질보증팀": "품질보증팀",
+        "품질보증": "품질보증팀",
+        "품질팀": "품질보증팀",
+        "생산기술파트": "생산기술파트",
+        "생산기술": "생산기술파트",
+        "생산기술팀": "생산기술파트",
+        "자재파트": "자재파트",
+        "자재": "자재파트",
+        "자재팀": "자재파트",
+    }
+    emp_map = {
+        "정규직": "정규직",
+        "정규": "정규직",
+        "계약직": "계약직",
+        "계약": "계약직",
+        "일용직": "일용직",
+        "일용": "일용직",
+    }
+
+    def as_company(value: str) -> str | None:
+        text = str(value or "").strip()
+        if text in ("에이텍모빌리티", "에이텍컴퓨터"):
+            return text
+        return company_map.get(fold(text))
+
+    def as_team(value: str) -> str | None:
+        text = str(value or "").strip()
+        if text in team_map.values():
+            return text
+        return team_map.get(fold(text)) or team_map.get(text)
+
+    def as_employment(value: str) -> str:
+        text = str(value or "").strip()
+        if text in ("정규직", "계약직", "일용직"):
+            return text
+        mapped = emp_map.get(fold(text))
+        return mapped or "정규직"
+
+    workbook = load_workbook(BytesIO(data), data_only=True)
+    sheet = workbook.active
+    rows: list[dict] = []
+    errors: list[str] = []
+    header = None
+    start = 2
+    for index, row in enumerate(sheet.iter_rows(min_row=1, max_row=20, max_col=8, values_only=True), start=1):
+        texts = [str(item or "").strip() for item in row]
+        if "성명" in texts and "회사" in texts and "팀" in texts:
+            header = texts
+            start = index + 1
+            break
+    if header is None:
+        return {"rows": [], "errors": ["성명·회사·팀 헤더를 찾지 못했습니다."]}
+    name_col = header.index("성명")
+    company_col = header.index("회사") if "회사" in header else 1
+    team_col = header.index("팀") if "팀" in header else 2
+    type_col = header.index("고용형태") if "고용형태" in header else 3
+    seen: set[tuple[str, str, str]] = set()
+    for excel_row, row in enumerate(sheet.iter_rows(min_row=start, max_col=8, values_only=True), start=start):
+        values = list(row)
+
+        def cell(idx: int) -> str:
+            if idx >= len(values) or values[idx] is None:
+                return ""
+            return str(values[idx]).strip()
+
+        name = cell(name_col)
+        if not name or name == "안내" or name.startswith(("회사는", "팀은", "고용형태는", "자주", "고정")):
+            continue
+        company = as_company(cell(company_col))
+        team_raw = cell(team_col)
+        team = as_team(team_raw)
+        employment = as_employment(cell(type_col))
+        if company is None:
+            errors.append(f"{excel_row}행 '{name}': 회사는 에이텍모빌리티 또는 에이텍컴퓨터여야 합니다.")
+            continue
+        if team is None:
+            errors.append(f"{excel_row}행 '{name}': 팀을 확인할 수 없습니다. ({team_raw})")
+            continue
+        key = (name, company, team)
+        if key in seen:
+            errors.append(f"{excel_row}행 '{name}': 같은 회사·팀에 이름이 중복됩니다.")
+            continue
+        seen.add(key)
+        rows.append(
+            {"name": name, "company": company, "team": team, "employment_type": employment}
+        )
+    if not rows and not errors:
+        errors.append("유효한 임직원 행이 없습니다.")
+    return {"rows": rows, "errors": errors}
+
+
 def _render_prodadmin_excel_roster(username: str) -> None:
     """Cloud가 옛 roster 화면만 읽어도, app.py만 올리면 엑셀 받기·올리기가 보이게 한다."""
     from src.config import COMPANIES, EMPLOYMENT_TYPES, ROLE_ADMIN, SUBMITTING_TEAMS, primary_role
-    from src.excel_io import build_employee_template, parse_employee_roster
+    from src.excel_io import build_employee_template
     from src.store import AccessDenied, list_employees, replace_employee_roster
 
     if primary_role(username) != ROLE_ADMIN:
         return
 
     st.subheader("재직인원 명부")
-    st.caption("양식을 다운받아 성명·회사·팀·고용형태를 적은 다음, 아래에서 엑셀을 올리세요.")
+    st.caption(
+        "양식에 성명·회사·팀·고용형태를 적은 뒤 아래에서 엑셀만 올리면 바로 반영됩니다. "
+        "고용형태에 직급(이사·책임·선임·사원 등)을 적어도 정규직으로 저장합니다."
+    )
     current = list_employees(username)
     left, right = st.columns(2)
     with left:
@@ -255,40 +391,41 @@ def _render_prodadmin_excel_roster(username: str) -> None:
             disabled=not current,
         )
 
+    st.session_state["_yi_excel_roster_shown"] = True
+
     uploaded = st.file_uploader("재직인원 엑셀 업로드", type=["xlsx"], key="app_up_roster")
     if uploaded is not None:
-        parsed = parse_employee_roster(uploaded.getvalue())
-        if parsed.errors:
-            st.error("아래 행은 반영되지 않습니다.")
-            for item in parsed.errors:
-                st.write(f"- {item}")
-        if parsed.rows:
-            st.success(f"유효한 인원 {len(parsed.rows)}명")
-            st.dataframe(
-                [
-                    {
-                        "성명": item["name"],
-                        "회사": item["company"],
-                        "팀": item["team"],
-                        "고용형태": item["employment_type"],
-                    }
-                    for item in parsed.rows
-                ],
-                hide_index=True,
-                width="stretch",
-            )
-            replace_ok = st.checkbox("기존 명부를 이 파일로 바꿉니다", key="app_confirm_roster_replace")
-            if st.button("명부 반영", type="primary", key="app_apply_roster"):
-                if not replace_ok:
-                    st.error("확인 체크를 한 뒤에 반영해 주세요.")
-                else:
-                    try:
-                        count = replace_employee_roster(username, parsed.rows)
-                        st.success(f"명부 {count}명을 반영했습니다.")
-                        st.rerun()
-                    except AccessDenied as exc:
-                        st.error(str(exc))
-        elif not parsed.errors:
+        raw = uploaded.getvalue()
+        parsed = _parse_roster_bytes(raw)
+        if parsed["errors"]:
+            st.error("일부 행은 건너뛰었습니다.\n" + "\n".join(f"- {item}" for item in parsed["errors"]))
+        rows = parsed["rows"]
+        if rows:
+            sig = hashlib.sha256(raw).hexdigest()
+            if st.session_state.get("app_roster_sig") != sig:
+                try:
+                    count = replace_employee_roster(username, rows)
+                    st.session_state["app_roster_sig"] = sig
+                    st.success(f"재직인원 {count}명을 반영했습니다.")
+                    st.rerun()
+                except AccessDenied as exc:
+                    st.error(str(exc))
+            else:
+                st.success(f"반영된 인원 {len(rows)}명")
+                st.dataframe(
+                    [
+                        {
+                            "성명": item["name"],
+                            "회사": item["company"],
+                            "팀": item["team"],
+                            "고용형태": item["employment_type"],
+                        }
+                        for item in rows
+                    ],
+                    hide_index=True,
+                    width="stretch",
+                )
+        elif not parsed["errors"]:
             st.warning("파일에서 인원을 읽지 못했습니다.")
 
     st.markdown("**현재 전체 재직인원**")
@@ -315,6 +452,31 @@ def _render_prodadmin_excel_roster(username: str) -> None:
 
 
 def _install_admin_roster_patch() -> None:
+    try:
+        import src.excel_io as excel_io
+        from src.excel_io import RosterParseResult
+
+        def patched_parse(data):
+            raw = data if isinstance(data, bytes) else data.getvalue()
+            parsed = _parse_roster_bytes(raw)
+            return RosterParseResult(rows=parsed["rows"], errors=parsed["errors"])
+
+        excel_io.parse_employee_roster = patched_parse
+    except Exception:
+        pass
+
+    try:
+        import src.views.roster as roster_mod
+
+        def admin_roster(username: str) -> None:
+            _render_prodadmin_excel_roster(username)
+            st.divider()
+            roster_mod.render_team_roster_editor(username, allow_all_teams=True)
+
+        roster_mod._render_admin_roster = admin_roster
+    except Exception:
+        pass
+
     import src.views.roster_edit as roster_edit
 
     original = roster_edit.render_team_roster_editor

@@ -230,15 +230,12 @@ def parse_employee_roster(data: bytes | BytesIO) -> RosterParseResult:
             continue
         company = normalize_company(values[company_col] if company_col < len(values) else "")
         team = normalize_team(values[team_col] if team_col < len(values) else "")
-        employment = normalize_employment(values[type_col] if type_col < len(values) else "")
+        employment = normalize_employment(values[type_col] if type_col < len(values) else "") or "정규직"
         if company is None:
             result.errors.append(f"{excel_row}행 '{name}': 회사는 에이텍모빌리티 또는 에이텍컴퓨터여야 합니다.")
             continue
         if team is None:
             result.errors.append(f"{excel_row}행 '{name}': 팀을 확인할 수 없습니다.")
-            continue
-        if employment is None:
-            result.errors.append(f"{excel_row}행 '{name}': 고용형태는 정규직/계약직/일용직이어야 합니다.")
             continue
         key = (name, company, team)
         if key in seen:
@@ -296,7 +293,7 @@ def build_employee_template(rows: list[dict[str, Any]] | None = None) -> bytes:
     sheet.append(["안내"])
     sheet.append(["회사는 에이텍모빌리티 또는 에이텍컴퓨터만 입력합니다."])
     sheet.append([f"팀은 {', '.join(SUBMITTING_TEAMS)} 중 하나입니다."])
-    sheet.append([f"고용형태는 {', '.join(EMPLOYMENT_TYPES)} 중 하나입니다."])
+    sheet.append(["고용형태는 정규직, 계약직, 일용직입니다. 책임·선임·사원 같은 직급을 적어도 정규직으로 저장합니다."])
     sheet.append(["자주 바뀌는 일용직은 명부에 넣지 않아도 됩니다. 팀은 화면에서 수기로 추가합니다."])
     sheet.append(["고정 일용직만 명부에 넣으면 해당 팀 입력 화면에 함께 나타납니다."])
     for index, width in enumerate((14, 18, 16, 12), start=1):
