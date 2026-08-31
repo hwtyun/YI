@@ -51,6 +51,21 @@ _LOGO_CANDIDATES = (
 )
 _LOGIN_CSS = """
 <style>
+html, body, .stApp, [data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > section,
+[data-testid="stMain"], [data-testid="stMainBlockContainer"],
+.stMain, section.main, .main, .block-container,
+[data-testid="stHeader"], header,
+div[class*="st-key-yi_login"] {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color-scheme: light !important;
+}
+.stApp, [data-testid="stAppViewContainer"] {
+    --background-color: #ffffff !important;
+    --secondary-background-color: #87CEEB !important;
+    --st-background-color: #ffffff !important;
+}
 div[class*="st-key-yi_login"] h1,
 div[class*="st-key-yi_login"] h2,
 div[class*="st-key-yi_login"] p,
