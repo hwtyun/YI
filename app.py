@@ -26,11 +26,11 @@ from src.auth import get_authenticator, sign_in
 from src.config import USERS
 from src.db import init_db
 from src.secrets_util import missing_secret_names, render_secrets_help
-from src.theme import THEME_CSS, render_logo
+from src.theme import SITE_TITLE, THEME_CSS, render_logo
 from src.views.shell import render_signed_in
 
 st.set_page_config(
-    page_title="용인공장 특근 조사",
+    page_title=SITE_TITLE,
     page_icon="🏭",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -44,7 +44,7 @@ def _secrets_ready() -> bool:
         return True
     st.markdown(THEME_CSS, unsafe_allow_html=True)
     render_logo(160)
-    st.title("용인공장 특근 인원 조사")
+    st.title(SITE_TITLE)
     render_secrets_help(missing)
     return False
 
@@ -70,13 +70,13 @@ def _restore_cookie(authenticator) -> None:
 def _render_login(authenticator) -> None:
     st.markdown(THEME_CSS, unsafe_allow_html=True)
     render_logo(160)
-    st.title("용인공장 특근 인원 조사")
+    st.title(SITE_TITLE)
     st.caption("아이디로 로그인한 뒤 본인 화면만 사용합니다. 휴대폰에서도 입력할 수 있습니다.")
     st.checkbox("로그인 상태 유지", value=True, key="remember_login")
 
     with st.form("yi_factory_login"):
         username = st.text_input("아이디")
-        password = st.text_input("비밀번호", type="password")
+        password = st.text_input("비밀번호", type="password", key="login_password")
         submitted = st.form_submit_button("로그인", type="primary")
 
     if submitted:

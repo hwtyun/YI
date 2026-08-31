@@ -17,6 +17,8 @@ NAV_HQ = "hq"
 NAV_ADMIN = "admin"
 NAV_PROFILE = "profile"
 
+SITE_TITLE = "용인공장 특근·본사요청 취합"
+
 THEME_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
