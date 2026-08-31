@@ -527,15 +527,22 @@ div[class*="st-key-yi_user"] button:hover {
     border-color: #1a5fb4 !important;
     background: #fff !important;
 }
-html:not([data-theme="dark"]) input,
-html:not([data-theme="dark"]) textarea,
-html:not([data-theme="dark"]) select {
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
     color-scheme: light !important;
 }
 html[data-theme="dark"] input,
 html[data-theme="dark"] textarea,
 html[data-theme="dark"] select {
     color-scheme: dark !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) input,
+    html:not([data-theme="light"]) textarea,
+    html:not([data-theme="light"]) select {
+        color-scheme: dark !important;
+    }
 }
 [data-testid="stTextInput"] [data-baseweb="input"],
 [data-testid="stNumberInput"] [data-baseweb="input"],
@@ -557,8 +564,8 @@ html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > di
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] span,
 [data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
-    color: #1f2328 !important;
-    -webkit-text-fill-color: #1f2328 !important;
+    color: var(--yi-input-fg, #1f2328) !important;
+    -webkit-text-fill-color: var(--yi-input-fg, #1f2328) !important;
     background: transparent !important;
 }
 html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] span,
@@ -598,12 +605,23 @@ html[data-theme="dark"] [data-testid="stRadio"] [data-testid="stMarkdownContaine
     -webkit-appearance: none !important;
     appearance: none !important;
     background: transparent !important;
-    color: #111111 !important;
-    -webkit-text-fill-color: #111111 !important;
-    caret-color: #111111 !important;
+    color: var(--yi-input-fg, #111111) !important;
+    -webkit-text-fill-color: var(--yi-input-fg, #111111) !important;
+    caret-color: var(--yi-input-fg, #111111) !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) [data-testid="stTextInput"] input,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] input,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] span,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] div,
+    html:not([data-theme="light"]) [data-testid="stTextArea"] textarea {
+        color: #e6edf3 !important;
+        -webkit-text-fill-color: #e6edf3 !important;
+        caret-color: #e6edf3 !important;
+    }
 }
 html[data-theme="dark"] [data-testid="stTextInput"] input,
 html[data-theme="dark"] [data-testid="stTextArea"] textarea,

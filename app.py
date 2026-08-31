@@ -52,7 +52,7 @@ _LOGO_CANDIDATES = (
 )
 _PAGE_TEXT_CSS = """
 <style>
-:root, html[data-theme="light"], html:not([data-theme="dark"]) {
+:root, html[data-theme="light"] {
     --yi-fg: #1f2328;
     --yi-bg: #ffffff;
     --yi-canvas: #ffffff;
@@ -63,21 +63,31 @@ _PAGE_TEXT_CSS = """
     --yi-btn-bg: #f6f8fa;
     --yi-btn-fg: #1f2328;
 }
+@media (prefers-color-scheme: dark) {
+    :root {
+        --yi-fg: #e6edf3;
+        --yi-bg: #0d1117;
+        --yi-canvas: #161b22;
+        --yi-input-bg: #21262d;
+        --yi-input-fg: #e6edf3;
+        --yi-muted: #8b949e;
+        --yi-border: #30363d;
+        --yi-btn-bg: #21262d;
+        --yi-btn-fg: #e6edf3;
+    }
+}
 html[data-theme="dark"] {
     --yi-fg: #e6edf3;
     --yi-bg: #0d1117;
     --yi-canvas: #161b22;
-    --yi-input-bg: #0d1117;
+    --yi-input-bg: #21262d;
     --yi-input-fg: #e6edf3;
     --yi-muted: #8b949e;
     --yi-border: #30363d;
     --yi-btn-bg: #21262d;
     --yi-btn-fg: #e6edf3;
 }
-html:not([data-theme="dark"]),
-html:not([data-theme="dark"]) body,
-html:not([data-theme="dark"]) .stApp,
-html:not([data-theme="dark"]) [data-testid="stAppViewContainer"] {
+html[data-theme="light"] {
     color-scheme: light !important;
     color: var(--yi-fg);
     background: var(--yi-bg);
@@ -94,6 +104,14 @@ html[data-theme="dark"] .block-container {
     color: var(--yi-fg) !important;
     --text-color: var(--yi-fg) !important;
     --textColor: var(--yi-fg) !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]),
+    html:not([data-theme="light"]) body,
+    html:not([data-theme="light"]) .stApp {
+        color-scheme: dark !important;
+        color: var(--yi-fg);
+    }
 }
 [data-testid="stHeading"],
 [data-testid="stHeading"] *,
@@ -207,15 +225,22 @@ html[data-theme="dark"] .yi-card {
     color: var(--yi-fg) !important;
     -webkit-text-fill-color: var(--yi-fg) !important;
 }
-html:not([data-theme="dark"]) input,
-html:not([data-theme="dark"]) textarea,
-html:not([data-theme="dark"]) select {
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
     color-scheme: light !important;
 }
 html[data-theme="dark"] input,
 html[data-theme="dark"] textarea,
 html[data-theme="dark"] select {
     color-scheme: dark !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) input,
+    html:not([data-theme="light"]) textarea,
+    html:not([data-theme="light"]) select {
+        color-scheme: dark !important;
+    }
 }
 [data-testid="stTextInput"] [data-baseweb="input"],
 [data-testid="stNumberInput"] [data-baseweb="input"],
@@ -264,13 +289,41 @@ html[data-theme="dark"] select {
     outline: none !important;
     box-shadow: none !important;
 }
-[data-testid="stSelectbox"] [data-baseweb="select"] span,
-[data-testid="stSelectbox"] [data-baseweb="select"] p,
-[data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
-[data-testid="stMultiSelect"] [data-baseweb="select"] span {
+[data-testid="stSelectbox"] input,
+[data-testid="stSelectbox"] span,
+[data-testid="stSelectbox"] p,
+[data-testid="stSelectbox"] div,
+[data-testid="stMultiSelect"] input,
+[data-testid="stMultiSelect"] span,
+[data-testid="stMultiSelect"] div,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectboxVirtualDropdown"],
+[data-testid="stSelectboxVirtualDropdown"] * {
     color: var(--yi-input-fg) !important;
     -webkit-text-fill-color: var(--yi-input-fg) !important;
-    background: transparent !important;
+    caret-color: var(--yi-input-fg) !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] input,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] p,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] div,
+    html:not([data-theme="light"]) [data-testid="stMultiSelect"] input,
+    html:not([data-theme="light"]) [data-testid="stMultiSelect"] span,
+    html:not([data-theme="light"]) [data-testid="stMultiSelect"] div,
+    html:not([data-theme="light"]) [data-testid="stTextInput"] input,
+    html:not([data-theme="light"]) [data-testid="stTextArea"] textarea,
+    html:not([data-theme="light"]) [data-testid="stSelectboxVirtualDropdown"],
+    html:not([data-theme="light"]) [data-testid="stSelectboxVirtualDropdown"] * {
+        color: #e6edf3 !important;
+        -webkit-text-fill-color: #e6edf3 !important;
+        caret-color: #e6edf3 !important;
+    }
 }
 [data-testid="stSelectbox"] svg,
 [data-testid="stDateInput"] svg,
