@@ -1210,10 +1210,117 @@ def _install_admin_roster_patch() -> None:
     roster_edit.render_team_roster_editor = wrapped
 
 
+def _secret_value(name: str):
+    try:
+        value = str(st.secrets.get(name) or "").strip()
+        return value or None
+    except Exception:
+        return None
+
+
+def _call_form_ai(request_text: str) -> str:
+    import json
+    import urllib.error
+    import urllib.request
+
+    prompt = (
+        "당신은 공장의 팀별 취합 양식을 설계합니다.\n"
+        "아래는 본사에서 온 요청 메일 본문과 첨부 내용입니다.\n"
+        "각 팀이 웹에서 입력해야 할 표 컬럼을 추출하세요.\n"
+        "반드시 JSON만 출력하세요. 배포 여부, 자동 발송, 메일 발송 필드는 넣지 마세요.\n"
+        '형식: {"title":"조사 제목","instructions":"짧은 안내",'
+        '"columns":[{"key":"item_name","label":"한글 항목명","type":"text","required":true}]}\n'
+        "규칙: columns 1~20개, type은 text/number/date, key는 영문·숫자·밑줄만.\n\n요청:\n"
+        f"{request_text}"
+    )
+
+    def http_json(url: str, payload: dict, headers: dict) -> dict:
+        body = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:400]
+            raise RuntimeError(f"{exc.code} {detail}".strip()) from exc
+
+    errors = []
+    openai_key = _secret_value("OPENAI_API_KEY")
+    if openai_key:
+        last = None
+        for model_name in ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"):
+            try:
+                payload = http_json(
+                    "https://api.openai.com/v1/chat/completions",
+                    {
+                        "model": model_name,
+                        "temperature": 0.2,
+                        "response_format": {"type": "json_object"},
+                        "messages": [
+                            {"role": "system", "content": prompt},
+                            {"role": "user", "content": request_text},
+                        ],
+                    },
+                    {
+                        "Authorization": f"Bearer {openai_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                text = str(payload["choices"][0]["message"]["content"] or "")
+                if text.strip():
+                    return text
+            except Exception as exc:  # noqa: BLE001
+                last = exc
+        errors.append(f"OpenAI 호출에 실패했습니다. {last or ''}".strip())
+
+    gemini_key = _secret_value("GEMINI_API_KEY")
+    if gemini_key:
+        last = None
+        for model_name in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.6-flash"):
+            try:
+                payload = http_json(
+                    (
+                        "https://generativelanguage.googleapis.com/v1beta/models/"
+                        f"{model_name}:generateContent?key={gemini_key}"
+                    ),
+                    {"contents": [{"parts": [{"text": prompt}]}]},
+                    {"Content-Type": "application/json"},
+                )
+                parts = payload.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                text = "".join(str(part.get("text") or "") for part in parts)
+                if text.strip():
+                    return text
+            except Exception as exc:  # noqa: BLE001
+                last = exc
+        errors.append(f"Gemini 호출에 실패했습니다. {last or ''}".strip())
+
+    if errors:
+        raise RuntimeError(" ".join(errors))
+    raise RuntimeError(
+        "OPENAI_API_KEY 또는 GEMINI_API_KEY가 secrets.toml에 없습니다. "
+        "키를 넣거나 컬럼을 직접 작성하세요."
+    )
+
+
+def _install_ai_schema_patch() -> None:
+    try:
+        import src.gemini as gemini_mod
+
+        gemini_mod._call_gemini = _call_form_ai
+        gemini_mod.gemini_api_key = lambda: _secret_value("OPENAI_API_KEY") or _secret_value(
+            "GEMINI_API_KEY"
+        )
+        if hasattr(gemini_mod, "ai_api_key"):
+            gemini_mod.ai_api_key = gemini_mod.gemini_api_key
+    except Exception:
+        pass
+
+
 def _render_app(authenticator) -> None:
     st.session_state.pop("_yi_excel_roster_shown", None)
     _install_calendar_nav_patch()
     _install_admin_roster_patch()
+    _install_ai_schema_patch()
     from src.views.shell import render_signed_in
 
     _inject_css(_PAGE_TEXT_CSS)
