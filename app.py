@@ -101,6 +101,10 @@ div[class*="st-key-cal_today"] {
     line-height: 2.4rem !important;
     margin: 0 !important;
 }
+.yi-tag-meal {
+    background: #fff4e5 !important;
+    color: #b35c00 !important;
+}
 </style>
 """
 _LOGIN_CSS = """
@@ -847,24 +851,47 @@ def _render_factory_overtime_list(
 def _render_overtime_calendar(username: str, team=None, read_only: bool = False, **kwargs) -> None:
     from datetime import date
 
-    from src.config import CAFETERIA_MIN_HEADCOUNT, cafeteria_operating
+    from src.config import CAFETERIA_MIN_HEADCOUNT
     from src.store import (
-        list_factory_overtime_counts,
         list_overtime_people,
         ensure_open_overtime_survey,
     )
     from src.views.calendar_page import (
-        _cell_html,
         _counts_by_date,
         _month_start,
         _render_team_date_editor,
         _sunday_first_weeks,
     )
 
+    def meal_value(item: dict) -> int:
+        try:
+            return int(float(item.get("meal_count") or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    def cell_html(day_num: int, dow: int, headcount: int, meals: int, selected: bool) -> str:
+        css = "yi-sun" if dow == 0 else ("yi-sat" if dow == 6 else "yi-day")
+        on = " yi-cell-on" if selected else ""
+        tags = []
+        if headcount:
+            tags.append(f"<span class='yi-tag yi-tag-count'>특근 {headcount}명</span>")
+        if meals:
+            tags.append(f"<span class='yi-tag yi-tag-meal'>식수 {meals}명</span>")
+        if meals >= CAFETERIA_MIN_HEADCOUNT:
+            tags.append("<span class='yi-tag yi-tag-cafe'>식당운영</span>")
+        elif not headcount:
+            tags.append("<span class='yi-tag yi-tag-open'>입력</span>")
+        return (
+            f"<div class='yi-cell{on}'>"
+            f"<div class='{css} yi-cell-num'>{day_num}</div>"
+            f"{''.join(tags)}"
+            "</div>"
+        )
+
     st.header("특근인원")
     st.caption(
         "날짜를 누르면 그날 공장 전체 특근 명단을 볼 수 있습니다. "
-        f"입력은 우리 팀만 가능합니다. 달력 인원 수는 공장 전체이며, {CAFETERIA_MIN_HEADCOUNT}명 이상이면 식당을 운영합니다."
+        f"입력은 우리 팀만 가능합니다. 달력에는 특근인원과 식수인원을 따로 표시하며, 식수 {CAFETERIA_MIN_HEADCOUNT}명 이상이면 식당을 운영합니다."
     )
     today = date.today()
     if "cal_month" not in st.session_state:
@@ -873,9 +900,17 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
     _render_calendar_month_nav(month_cursor)
 
     survey = ensure_open_overtime_survey(username)
-    factory_counts = list_factory_overtime_counts(username)
+    all_people = list_overtime_people(username)
+    factory_counts: dict[str, int] = {}
+    factory_meals: dict[str, int] = {}
+    for item in all_people:
+        key = str(item.get("work_date") or "")
+        if not key:
+            continue
+        factory_counts[key] = factory_counts.get(key, 0) + 1
+        factory_meals[key] = factory_meals.get(key, 0) + meal_value(item)
     team_counts = _counts_by_date(
-        [item for item in list_overtime_people(username) if team and str(item.get("team") or "") == team]
+        [item for item in all_people if team and str(item.get("team") or "") == team]
     )
     left, right = st.columns([7, 5], gap="large")
     with left:
@@ -899,8 +934,9 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
                     day = date(month_cursor.year, month_cursor.month, day_num)
                     iso = day.isoformat()
                     factory_count = factory_counts.get(iso, 0)
+                    meal_count = factory_meals.get(iso, 0)
                     st.markdown(
-                        _cell_html(day_num, dow, factory_count, True, selected == iso),
+                        cell_html(day_num, dow, factory_count, meal_count, selected == iso),
                         unsafe_allow_html=True,
                     )
                     try:
@@ -932,20 +968,22 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
         weekday = "월화수목금토일"[selected_day.weekday()]
         st.subheader(f"{selected_day.month}/{selected_day.day} ({weekday})")
         factory_count = factory_counts.get(selected_day.isoformat(), 0)
+        meal_count = factory_meals.get(selected_day.isoformat(), 0)
         team_count = team_counts.get(selected_day.isoformat(), 0)
-        cafe = cafeteria_operating(factory_count)
+        cafe = meal_count >= CAFETERIA_MIN_HEADCOUNT
         st.markdown(
             "<div class='yi-summary'>"
-            f"<div class='yi-metric'><span>공장 전체</span><b>{factory_count}명</b></div>"
+            f"<div class='yi-metric'><span>특근인원</span><b>{factory_count}명</b></div>"
+            f"<div class='yi-metric'><span>식수인원</span><b>{meal_count}명</b></div>"
             f"<div class='yi-metric'><span>식당</span><b>{'운영' if cafe else '미운영'}</b></div>"
             f"<div class='yi-metric'><span>우리 팀</span><b>{(str(team_count) + '명') if team else '-'}</b></div>"
             "</div>",
             unsafe_allow_html=True,
         )
         if cafe:
-            st.success(f"특근 {factory_count}명 · 식당 운영 ({CAFETERIA_MIN_HEADCOUNT}명 이상)")
+            st.success(f"특근 {factory_count}명 · 식수 {meal_count}명 · 식당 운영 (식수 {CAFETERIA_MIN_HEADCOUNT}명 이상)")
         else:
-            st.caption(f"식당은 특근 {CAFETERIA_MIN_HEADCOUNT}명부터 운영합니다.")
+            st.caption(f"식당은 식수인원 {CAFETERIA_MIN_HEADCOUNT}명부터 운영합니다.")
         day_rows = list_overtime_people(username, selected_day.isoformat())
         by_company: dict[str, int] = {}
         by_team: dict[str, int] = {}
