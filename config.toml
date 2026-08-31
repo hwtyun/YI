@@ -12,6 +12,11 @@ showErrorDetails = "none"
 
 [theme]
 base = "light"
-textColor = "#000000"
-backgroundColor = "#f3f6fa"
-secondaryBackgroundColor = "#87CEEB"
+textColor = "#111111"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#e8f4fc"
+
+[theme.dark]
+textColor = "#f4f6f8"
+backgroundColor = "#1b1d21"
+secondaryBackgroundColor = "#2b2f36"

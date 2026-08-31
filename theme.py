@@ -29,8 +29,12 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     font-family: "Noto Sans KR", sans-serif;
     direction: ltr !important;
 }
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-.stMain, section.main, .block-container {
+html:not([data-theme="dark"]) .stApp,
+html:not([data-theme="dark"]) [data-testid="stAppViewContainer"],
+html:not([data-theme="dark"]) [data-testid="stMain"],
+html:not([data-theme="dark"]) .stMain,
+html:not([data-theme="dark"]) section.main,
+html:not([data-theme="dark"]) .block-container {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000;
@@ -40,20 +44,71 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     --background-color: #ffffff !important;
     --st-background-color: #ffffff !important;
 }
-[data-testid="stHeading"],
-[data-testid="stHeading"] *,
-[data-testid="stCaption"],
-[data-testid="stCaption"] *,
-[data-testid="stCaptionContainer"],
-[data-testid="stCaptionContainer"] *,
-[data-testid="stWidgetLabel"],
-[data-testid="stWidgetLabel"] *,
-.stHeading, .stHeading *,
-.stCaption, .stCaption *,
-h1, h2, h3, h4, h5, h6 {
+html[data-theme="dark"] .stApp,
+html[data-theme="dark"] [data-testid="stAppViewContainer"],
+html[data-theme="dark"] [data-testid="stMain"],
+html[data-theme="dark"] .stMain,
+html[data-theme="dark"] section.main,
+html[data-theme="dark"] .block-container {
+    background: #1b1d21 !important;
+    background-color: #1b1d21 !important;
+    color: #f4f6f8 !important;
+    color-scheme: dark !important;
+    --text-color: #f4f6f8 !important;
+    --textColor: #f4f6f8 !important;
+    --background-color: #1b1d21 !important;
+    --st-background-color: #1b1d21 !important;
+}
+html:not([data-theme="dark"]) [data-testid="stHeading"],
+html:not([data-theme="dark"]) [data-testid="stHeading"] *,
+html:not([data-theme="dark"]) [data-testid="stCaption"],
+html:not([data-theme="dark"]) [data-testid="stCaption"] *,
+html:not([data-theme="dark"]) [data-testid="stCaptionContainer"],
+html:not([data-theme="dark"]) [data-testid="stCaptionContainer"] *,
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"],
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"] *,
+html:not([data-theme="dark"]) .stHeading,
+html:not([data-theme="dark"]) .stHeading *,
+html:not([data-theme="dark"]) .stCaption,
+html:not([data-theme="dark"]) .stCaption *,
+html:not([data-theme="dark"]) h1,
+html:not([data-theme="dark"]) h2,
+html:not([data-theme="dark"]) h3,
+html:not([data-theme="dark"]) h4,
+html:not([data-theme="dark"]) h5,
+html:not([data-theme="dark"]) h6 {
     color: #000000 !important;
     opacity: 1 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+html[data-theme="dark"] [data-testid="stHeading"],
+html[data-theme="dark"] [data-testid="stHeading"] *,
+html[data-theme="dark"] [data-testid="stCaption"],
+html[data-theme="dark"] [data-testid="stCaption"] *,
+html[data-theme="dark"] [data-testid="stWidgetLabel"],
+html[data-theme="dark"] [data-testid="stWidgetLabel"] *,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6 {
+    color: #f4f6f8 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+}
+[data-testid="stDownloadButton"] button {
+    background-color: #1f4e79 !important;
+    border-color: #1f4e79 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+}
+[data-testid="stDownloadButton"] button p,
+[data-testid="stDownloadButton"] button span,
+[data-testid="stDownloadButton"] button div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
 .yi-site-title, .yi-login-caption {
     color: #000000 !important;
@@ -287,6 +342,23 @@ div[class*="st-key-yi_user"] button:hover {
     border-color: #1a5fb4 !important;
     background: #fff !important;
 }
+.yi-cal-month,
+.yi-cal-month * {
+    text-align: center !important;
+    font-size: 1.7rem !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    line-height: 2.4rem !important;
+    margin: 0 !important;
+}
+html[data-theme="dark"] .yi-cal-month,
+html[data-theme="dark"] .yi-cal-month * {
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+}
 .yi-card {
     background: #fff;
     border-radius: 16px;
@@ -320,21 +392,48 @@ div[data-testid="stButton"] > button[kind="secondary"] {
 .yi-sat { color: #1a5fb4; font-weight: 700; }
 .yi-sun { color: #d94848; font-weight: 700; }
 .yi-day { color: #243547; font-weight: 600; }
-.yi-cell { min-height: 4.6rem; padding: 2px 0 4px 0; }
-.yi-cell-num { text-align: center; font-size: 0.95rem; margin-bottom: 4px; }
-.yi-cell-on { background: #eaf3fc; border-radius: 10px; padding: 4px 2px 6px 2px; }
+.yi-cell {
+    height: 7.6rem;
+    min-height: 7.6rem;
+    max-height: 7.6rem;
+    padding: 4px 2px 2px 2px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.yi-cell-num { text-align: center; font-size: 0.95rem; margin-bottom: 2px; flex: none; }
+.yi-cell-meta {
+    flex: 1;
+    min-height: 4.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+}
+.yi-cell-on { background: #eaf3fc; border-radius: 10px; padding: 4px 2px 2px 2px; }
 .yi-tag {
     display: block;
     border-radius: 8px;
-    padding: 2px 6px;
-    margin: 2px 2px 0 2px;
-    font-size: 0.68rem;
+    padding: 2px 4px;
+    margin: 0 2px;
+    font-size: 0.64rem;
     font-weight: 600;
     text-align: center;
-    line-height: 1.35;
+    line-height: 1.3;
+    overflow: hidden;
+}
+.yi-tag-spacer { visibility: hidden; background: transparent !important; }
+[data-testid="stMarkdownContainer"]:has(.yi-cell) {
+    min-height: 7.6rem;
+}
+[data-testid="stMarkdownContainer"]:has(.yi-cell) p {
+    margin: 0 !important;
 }
 .yi-tag-count { background: #e8f1fb; color: #1a5fb4; }
+.yi-tag-meal { background: #fff4e5; color: #b35c00; }
 .yi-tag-cafe { background: #e7f6ee; color: #1b7a45; }
+.yi-tag-off { background: #f4f6f8; color: #7a8794; }
 .yi-tag-open { background: #f4f7fb; color: #6a7b8c; }
 .yi-summary {
     display: flex;
@@ -389,6 +488,78 @@ div[class*="st-key-yi_user"] button:hover {
     color: #1a5fb4 !important;
     border-color: #1a5fb4 !important;
     background: #fff !important;
+}
+html:not([data-theme="dark"]) input,
+html:not([data-theme="dark"]) textarea,
+html:not([data-theme="dark"]) select {
+    color-scheme: light !important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    color-scheme: dark !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"] > div,
+[data-testid="stTextArea"] textarea,
+[data-testid="stTextArea"] [data-baseweb="textarea"],
+[data-testid="stTextArea"] [data-baseweb="base-input"],
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-baseweb="textarea"] textarea,
+[data-baseweb="input"] input,
+textarea {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    caret-color: #111111 !important;
+}
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="input"],
+html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="base-input"] > div,
+html[data-theme="dark"] [data-testid="stTextArea"] textarea,
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"],
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="base-input"],
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="base-input"] > div,
+html[data-theme="dark"] [data-testid="stDateInput"] input,
+html[data-theme="dark"] [data-testid="stTimeInput"] input,
+html[data-theme="dark"] [data-testid="stNumberInput"] input,
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="password"] {
+    background-color: #2b2f36 !important;
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+    caret-color: #f4f6f8 !important;
+}
+[data-testid="InputInstructions"],
+[data-testid="InputInstructions"] * {
+    color: #3d4a57 !important;
+}
+html[data-theme="dark"] [data-testid="InputInstructions"],
+html[data-theme="dark"] [data-testid="InputInstructions"] * {
+    color: #c5ccd4 !important;
+}
+html[data-theme="dark"] .yi-day,
+html[data-theme="dark"] .yi-cell-num {
+    color: #f4f6f8 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input {
+    background: #87CEEB !important;
+    background-color: #87CEEB !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
+    color-scheme: light !important;
 }
 </style>
 """

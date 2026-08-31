@@ -52,6 +52,42 @@ _LOGO_CANDIDATES = (
 )
 _PAGE_TEXT_CSS = """
 <style>
+:root, html[data-theme="light"], html:not([data-theme="dark"]) {
+    --yi-fg: #111111;
+    --yi-bg: #ffffff;
+    --yi-input-bg: #ffffff;
+    --yi-input-fg: #111111;
+    --yi-muted: #3d4a57;
+    --yi-border: #d7e3ef;
+}
+html[data-theme="dark"] {
+    --yi-fg: #f4f6f8;
+    --yi-bg: #1b1d21;
+    --yi-input-bg: #2b2f36;
+    --yi-input-fg: #f4f6f8;
+    --yi-muted: #c5ccd4;
+    --yi-border: #3d4450;
+}
+html:not([data-theme="dark"]),
+html:not([data-theme="dark"]) body,
+html:not([data-theme="dark"]) .stApp,
+html:not([data-theme="dark"]) [data-testid="stAppViewContainer"] {
+    color-scheme: light !important;
+    color: var(--yi-fg);
+}
+html[data-theme="dark"],
+html[data-theme="dark"] body,
+html[data-theme="dark"] .stApp,
+html[data-theme="dark"] [data-testid="stAppViewContainer"],
+html[data-theme="dark"] [data-testid="stMain"],
+html[data-theme="dark"] .block-container {
+    color-scheme: dark !important;
+    background: var(--yi-bg) !important;
+    background-color: var(--yi-bg) !important;
+    color: var(--yi-fg) !important;
+    --text-color: var(--yi-fg) !important;
+    --textColor: var(--yi-fg) !important;
+}
 [data-testid="stHeading"],
 [data-testid="stHeading"] *,
 [data-testid="stCaption"],
@@ -63,15 +99,144 @@ _PAGE_TEXT_CSS = """
 .stHeading, .stHeading *,
 .stCaption, .stCaption *,
 h1, h2, h3, h4, h5, h6,
+label,
 [data-testid="stMarkdown"] p,
-[data-testid="stMarkdown"] span,
+[data-testid="stMarkdown"] li,
 [data-testid="stMarkdown"] strong,
 [data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] span,
-[data-testid="stMarkdownContainer"] strong {
-    color: #000000 !important;
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] strong,
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] p,
+[data-testid="stCheckbox"] p,
+[data-testid="stCheckbox"] span,
+[data-testid="stCheckbox"] label,
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] p,
+[data-testid="stMetric"] label,
+[data-testid="stMetric"] [data-testid="stMetricValue"],
+[data-testid="stTabs"] button,
+[data-testid="stAlert"] p,
+[data-testid="stException"] p {
+    color: var(--yi-fg) !important;
     opacity: 1 !important;
+    -webkit-text-fill-color: var(--yi-fg) !important;
+}
+html[data-theme="light"] [data-testid="stHeading"] *,
+html[data-theme="light"] [data-testid="stWidgetLabel"] *,
+html:not([data-theme="dark"]) [data-testid="stHeading"] *,
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"] * {
+    color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+html:not([data-theme="dark"]) input,
+html:not([data-theme="dark"]) textarea,
+html:not([data-theme="dark"]) select {
+    color-scheme: light !important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    color-scheme: dark !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"],
+[data-testid="stTextInput"] [data-baseweb="input"] > div,
+[data-testid="stTextInput"] [data-baseweb="base-input"] > div,
+[data-testid="stTextArea"] textarea,
+[data-testid="stTextArea"] [data-baseweb="textarea"],
+[data-testid="stTextArea"] [data-baseweb="base-input"],
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div,
+[data-testid="stDateInput"] input,
+[data-testid="stDateInput"] [data-baseweb="input"],
+[data-testid="stDateInput"] [data-baseweb="base-input"],
+[data-testid="stTimeInput"] input,
+[data-testid="stTimeInput"] [data-baseweb="input"],
+[data-testid="stNumberInput"] input,
+[data-testid="stNumberInput"] [data-baseweb="input"],
+[data-testid="stSelectbox"] input,
+[data-testid="stSelectbox"] [data-baseweb="select"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stMultiSelect"] input,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-testid="stChatInput"] textarea,
+[data-baseweb="input"],
+[data-baseweb="input"] input,
+[data-baseweb="textarea"],
+[data-baseweb="textarea"] textarea,
+[data-baseweb="select"] > div,
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+input[type="search"] {
+    background-color: var(--yi-input-bg) !important;
+    color: var(--yi-input-fg) !important;
+    -webkit-text-fill-color: var(--yi-input-fg) !important;
+    caret-color: var(--yi-input-fg) !important;
+}
+[data-testid="stTextArea"] textarea::placeholder,
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stChatInput"] textarea::placeholder,
+textarea::placeholder,
+input::placeholder {
+    color: var(--yi-muted) !important;
+    -webkit-text-fill-color: var(--yi-muted) !important;
+    opacity: 1 !important;
+}
+[data-testid="InputInstructions"],
+[data-testid="InputInstructions"] *,
+[data-testid="stTextArea"] small,
+[data-testid="stTextArea"] [data-testid="stCaption"] {
+    color: var(--yi-muted) !important;
+    -webkit-text-fill-color: var(--yi-muted) !important;
+}
+[data-testid="stDataEditor"],
+[data-testid="stDataEditor"] input,
+[data-testid="stDataEditor"] textarea,
+[data-testid="stDataFrame"],
+[data-testid="stDataFrame"] input,
+[data-testid="stFileUploader"] section,
+[data-testid="stFileUploader"] small,
+[data-testid="stJson"],
+[data-testid="stCodeBlock"] {
+    background-color: var(--yi-input-bg) !important;
+    color: var(--yi-input-fg) !important;
+    -webkit-text-fill-color: var(--yi-input-fg) !important;
+}
+html[data-theme="dark"] [data-testid="stExpander"] details,
+html[data-theme="dark"] [data-testid="stTabs"] button,
+html[data-theme="dark"] [data-testid="stSelectbox"] svg,
+html[data-theme="dark"] [data-testid="stDateInput"] svg,
+html[data-theme="dark"] [data-testid="stTimeInput"] svg,
+html[data-theme="dark"] [data-testid="stNumberInput"] button {
+    color: var(--yi-fg) !important;
+    fill: var(--yi-fg) !important;
+}
+html[data-theme="dark"] .yi-day,
+html[data-theme="dark"] .yi-cell-num,
+html[data-theme="dark"] .yi-hello,
+html[data-theme="dark"] .yi-hello * {
+    color: var(--yi-fg) !important;
+    -webkit-text-fill-color: var(--yi-fg) !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_topbar"],
+html[data-theme="dark"] .yi-card,
+html[data-theme="dark"] .yi-metric,
+html[data-theme="dark"] div[data-testid="stMetric"] {
+    background: #242830 !important;
+    border-color: #3d4450 !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_nav"] button {
+    color: #c5ccd4 !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_user"] button {
+    background: #2b2f36 !important;
+    color: #f4f6f8 !important;
+    border-color: #3d4450 !important;
 }
 div[class*="st-key-cal_today"] {
     display: none !important;
@@ -94,8 +259,8 @@ div[class*="st-key-cal_today"] {
     text-align: center !important;
     font-size: 1.7rem !important;
     font-weight: 700 !important;
-    color: #000000 !important;
-    -webkit-text-fill-color: #000000 !important;
+    color: var(--yi-fg) !important;
+    -webkit-text-fill-color: var(--yi-fg) !important;
     background: transparent !important;
     background-color: transparent !important;
     line-height: 2.4rem !important;
@@ -104,10 +269,12 @@ div[class*="st-key-cal_today"] {
 .yi-tag-meal {
     background: #fff4e5 !important;
     color: #b35c00 !important;
+    -webkit-text-fill-color: #b35c00 !important;
 }
 .yi-tag-off {
     background: #f4f6f8 !important;
     color: #7a8794 !important;
+    -webkit-text-fill-color: #7a8794 !important;
 }
 .yi-cell {
     height: 7.6rem !important;
@@ -153,6 +320,17 @@ div[class*="st-key-cal_today"] {
 }
 [data-testid="stMarkdownContainer"]:has(.yi-cell) p {
     margin: 0 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] > div > div {
+    background: #87CEEB !important;
+    background-color: #87CEEB !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
+    color-scheme: light !important;
 }
 </style>
 """
@@ -1971,6 +2149,7 @@ def _render_app(authenticator) -> None:
         st.error("로그인 정보를 확인할 수 없습니다. 다시 로그인하세요.")
         return
     render_signed_in(username, authenticator)
+    _inject_css(_PAGE_TEXT_CSS)
 
 
 def main() -> None:

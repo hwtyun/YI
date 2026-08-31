@@ -25,9 +25,82 @@ _PAGE_TEXT_CSS = """
 .stHeading, .stHeading *,
 .stCaption, .stCaption *,
 h1, h2, h3, h4, h5, h6 {
-    color: #000000 !important;
+    color: var(--yi-fg, #111111) !important;
     opacity: 1 !important;
+    -webkit-text-fill-color: var(--yi-fg, #111111) !important;
+}
+html:not([data-theme="dark"]) [data-testid="stHeading"] *,
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"] * {
+    color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+html[data-theme="dark"] [data-testid="stHeading"] *,
+html[data-theme="dark"] [data-testid="stWidgetLabel"] *,
+html[data-theme="dark"] [data-testid="stCaption"] * {
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+}
+html:not([data-theme="dark"]) input,
+html:not([data-theme="dark"]) textarea,
+html:not([data-theme="dark"]) select {
+    color-scheme: light !important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    color-scheme: dark !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"] > div,
+[data-testid="stTextArea"] textarea,
+[data-testid="stTextArea"] [data-baseweb="textarea"],
+[data-testid="stTextArea"] [data-baseweb="base-input"],
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+textarea {
+    background-color: var(--yi-input-bg, #ffffff) !important;
+    color: var(--yi-input-fg, #111111) !important;
+    -webkit-text-fill-color: var(--yi-input-fg, #111111) !important;
+    caret-color: var(--yi-input-fg, #111111) !important;
+}
+html[data-theme="dark"] [data-testid="stTextArea"] textarea,
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="base-input"],
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="base-input"] > div,
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stDateInput"] input {
+    background-color: #2b2f36 !important;
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+}
+[data-testid="stDownloadButton"] button {
+    background-color: #1f4e79 !important;
+    border-color: #1f4e79 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+}
+[data-testid="stDownloadButton"] button p,
+[data-testid="stDownloadButton"] button span,
+[data-testid="stDownloadButton"] button div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+.yi-cal-month,
+.yi-cal-month * {
+    text-align: center !important;
+    font-size: 1.7rem !important;
+    font-weight: 700 !important;
+    color: var(--yi-fg, #000000) !important;
+    -webkit-text-fill-color: var(--yi-fg, #000000) !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    line-height: 2.4rem !important;
+    margin: 0 !important;
 }
 </style>
 """
