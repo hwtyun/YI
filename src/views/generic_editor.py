@@ -3,15 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from src.config import ROLE_ADMIN, primary_role
-from src.schema import (
-    add_schema_column,
-    empty_schema,
-    entry_schema,
-    is_protected_column,
-    remove_schema_column,
-    roster_value_for_column,
-)
+from src.schema import empty_schema, entry_schema, roster_value_for_column
 from src.store import (
     AccessDenied,
     list_employees,
@@ -19,7 +11,6 @@ from src.store import (
     replace_team_responses,
     set_submitted,
     survey_edit_status,
-    update_survey,
 )
 
 
@@ -104,18 +95,6 @@ def _frame_to_payloads(schema: dict, frame: pd.DataFrame) -> list[dict]:
     return rows
 
 
-def _persist_schema(username: str, survey: dict, schema: dict) -> None:
-    update_survey(
-        username,
-        int(survey["id"]),
-        str(survey.get("title") or ""),
-        str(survey.get("period_start") or ""),
-        str(survey.get("period_end") or ""),
-        str(survey.get("deadline_at") or ""),
-        schema=schema,
-    )
-
-
 def render_generic_editor(username: str, team: str, survey: dict) -> None:
     survey_id = int(survey["id"])
     schema = entry_schema(survey.get("schema") or empty_schema())
@@ -142,41 +121,7 @@ def render_generic_editor(username: str, team: str, survey: dict) -> None:
         st.caption("명부에 있는 인원을 아래 입력표에 미리 넣었습니다. 이번 조사에 해당하지 않으면 그 행을 지우면 됩니다.")
     else:
         st.caption("재직 명부가 비어 있습니다. 관리자가 명부를 올리면 인원이 자동으로 나옵니다.")
-
-    if primary_role(username) == ROLE_ADMIN:
-        st.markdown("**열 추가 · 삭제**")
-        st.caption("AI가 만든 칸이 틀리면 여기서 열을 넣거나 지울 수 있습니다. 성명·회사·팀은 유지됩니다.")
-        add_col, del_col = st.columns(2)
-        raw_schema = survey.get("schema") or empty_schema()
-        with add_col:
-            new_label = st.text_input("추가할 열 이름", key=f"ge_add_name_{survey_id}_{team}")
-            if st.button("열 추가", key=f"ge_add_btn_{survey_id}_{team}"):
-                try:
-                    _persist_schema(username, survey, add_schema_column(raw_schema, new_label))
-                    st.success(f"「{new_label.strip()}」 열을 추가했습니다.")
-                    st.rerun()
-                except (ValueError, AccessDenied) as exc:
-                    st.error(str(exc))
-        with del_col:
-            removable = [
-                str(item.get("label") or "")
-                for item in (raw_schema.get("columns") or [])
-                if not is_protected_column(str(item.get("label") or ""))
-            ]
-            picked = st.selectbox(
-                "삭제할 열",
-                removable if removable else ["(삭제할 열이 없습니다)"],
-                key=f"ge_del_name_{survey_id}_{team}",
-            )
-            if st.button("열 삭제", key=f"ge_del_btn_{survey_id}_{team}"):
-                try:
-                    if not removable:
-                        raise ValueError("삭제할 열이 없습니다.")
-                    _persist_schema(username, survey, remove_schema_column(raw_schema, str(picked)))
-                    st.success(f"「{picked}」 열을 삭제했습니다.")
-                    st.rerun()
-                except (ValueError, AccessDenied) as exc:
-                    st.error(str(exc))
+    st.caption("열을 넣거나 지울 때는 생산관리팀 관리자메뉴 「조사 관리」에서 수정합니다.")
 
     labels = [str(column["label"]) for column in schema.get("columns") or []]
     editor_key = f"generic_ed_{survey_id}_{team}_{'_'.join(labels)}"

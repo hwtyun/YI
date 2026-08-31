@@ -25,9 +25,96 @@ _PAGE_TEXT_CSS = """
 .stHeading, .stHeading *,
 .stCaption, .stCaption *,
 h1, h2, h3, h4, h5, h6 {
-    color: #000000 !important;
+    color: var(--yi-fg, #111111) !important;
     opacity: 1 !important;
+    -webkit-text-fill-color: var(--yi-fg, #111111) !important;
+}
+html:not([data-theme="dark"]) [data-testid="stHeading"] *,
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"] * {
+    color: #000000 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+html[data-theme="dark"] [data-testid="stHeading"] *,
+html[data-theme="dark"] [data-testid="stWidgetLabel"] *,
+html[data-theme="dark"] [data-testid="stCaption"] * {
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+}
+html:not([data-theme="dark"]) input,
+html:not([data-theme="dark"]) textarea,
+html:not([data-theme="dark"]) select {
+    color-scheme: light !important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    color-scheme: dark !important;
+}
+[data-testid="stButton"] button[kind="primary"],
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button,
+[data-testid="stFileUploader"] button {
+    background-color: #1a5fb4 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+[data-testid="stButton"] button[kind="primary"] *,
+[data-testid="stFormSubmitButton"] button *,
+[data-testid="stDownloadButton"] button *,
+[data-testid="stFileUploader"] button * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+[data-testid="stButton"] button[kind="secondary"] {
+    background-color: #ffffff !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
+    border: 1px solid #d7e3ef !important;
+}
+[data-testid="stButton"] button[kind="secondary"] * {
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
+}
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stNumberInput"] [data-baseweb="input"],
+[data-testid="stDateInput"] [data-baseweb="input"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stTextArea"] [data-baseweb="textarea"] {
+    background-color: var(--yi-input-bg, #ffffff) !important;
+    border: 1px solid #c5d4e3 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+[data-testid="stTextInput"] [data-baseweb="base-input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"] > div,
+[data-testid="stTextArea"] [data-baseweb="base-input"],
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] input,
+[data-testid="stTextArea"] textarea {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    color: var(--yi-input-fg, #111111) !important;
+    -webkit-text-fill-color: var(--yi-input-fg, #111111) !important;
+    caret-color: var(--yi-input-fg, #111111) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+html[data-theme="dark"] [data-testid="stTextArea"] textarea,
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stDateInput"] input {
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
 }
 [data-testid="stDownloadButton"] button {
     background-color: #1f4e79 !important;
@@ -47,8 +134,8 @@ h1, h2, h3, h4, h5, h6 {
     text-align: center !important;
     font-size: 1.7rem !important;
     font-weight: 700 !important;
-    color: #000000 !important;
-    -webkit-text-fill-color: #000000 !important;
+    color: var(--yi-fg, #000000) !important;
+    -webkit-text-fill-color: var(--yi-fg, #000000) !important;
     background: transparent !important;
     background-color: transparent !important;
     line-height: 2.4rem !important;
@@ -143,8 +230,8 @@ def render_top_nav(username: str, authenticator) -> str:
     if current in allowed:
         st.markdown(
             f"<style>div[class*='st-key-yi_nav_{current}'] button {{"
-            "color:#1a365d !important;font-weight:700 !important;"
-            "border-bottom-color:#c41e3a !important;}}</style>",
+            "color:var(--yi-fg,#1a365d) !important;font-weight:700 !important;"
+            "border-bottom:2px solid #c41e3a !important;}}</style>",
             unsafe_allow_html=True,
         )
     return str(st.session_state.get("nav", current))

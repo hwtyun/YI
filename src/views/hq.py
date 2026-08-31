@@ -36,7 +36,7 @@ def render_hq_page(username: str) -> None:
         for item in list_surveys(username)
         if is_generic(item) and item.get("is_published")
     ]
-    st.caption("관리자가 배포한 본사 요청만 여기에 보입니다. 양식 만들기는 관리자메뉴에서 합니다.")
+    st.caption("관리자가 배포한 본사 요청만 여기에 보입니다. 열 추가·삭제는 생산관리팀 관리자메뉴 「조사 관리」에서 합니다.")
 
     if role == ROLE_DIRECTOR:
         if not surveys:

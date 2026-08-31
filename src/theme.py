@@ -29,8 +29,12 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     font-family: "Noto Sans KR", sans-serif;
     direction: ltr !important;
 }
-.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
-.stMain, section.main, .block-container {
+html:not([data-theme="dark"]) .stApp,
+html:not([data-theme="dark"]) [data-testid="stAppViewContainer"],
+html:not([data-theme="dark"]) [data-testid="stMain"],
+html:not([data-theme="dark"]) .stMain,
+html:not([data-theme="dark"]) section.main,
+html:not([data-theme="dark"]) .block-container {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000;
@@ -40,20 +44,58 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     --background-color: #ffffff !important;
     --st-background-color: #ffffff !important;
 }
-[data-testid="stHeading"],
-[data-testid="stHeading"] *,
-[data-testid="stCaption"],
-[data-testid="stCaption"] *,
-[data-testid="stCaptionContainer"],
-[data-testid="stCaptionContainer"] *,
-[data-testid="stWidgetLabel"],
-[data-testid="stWidgetLabel"] *,
-.stHeading, .stHeading *,
-.stCaption, .stCaption *,
-h1, h2, h3, h4, h5, h6 {
+html[data-theme="dark"] .stApp,
+html[data-theme="dark"] [data-testid="stAppViewContainer"],
+html[data-theme="dark"] [data-testid="stMain"],
+html[data-theme="dark"] .stMain,
+html[data-theme="dark"] section.main,
+html[data-theme="dark"] .block-container {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    color-scheme: light !important;
+    --text-color: #111111 !important;
+    --textColor: #111111 !important;
+    --background-color: #ffffff !important;
+    --st-background-color: #ffffff !important;
+}
+html:not([data-theme="dark"]) [data-testid="stHeading"],
+html:not([data-theme="dark"]) [data-testid="stHeading"] *,
+html:not([data-theme="dark"]) [data-testid="stCaption"],
+html:not([data-theme="dark"]) [data-testid="stCaption"] *,
+html:not([data-theme="dark"]) [data-testid="stCaptionContainer"],
+html:not([data-theme="dark"]) [data-testid="stCaptionContainer"] *,
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"],
+html:not([data-theme="dark"]) [data-testid="stWidgetLabel"] *,
+html:not([data-theme="dark"]) .stHeading,
+html:not([data-theme="dark"]) .stHeading *,
+html:not([data-theme="dark"]) .stCaption,
+html:not([data-theme="dark"]) .stCaption *,
+html:not([data-theme="dark"]) h1,
+html:not([data-theme="dark"]) h2,
+html:not([data-theme="dark"]) h3,
+html:not([data-theme="dark"]) h4,
+html:not([data-theme="dark"]) h5,
+html:not([data-theme="dark"]) h6 {
     color: #000000 !important;
     opacity: 1 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+html[data-theme="dark"] [data-testid="stHeading"],
+html[data-theme="dark"] [data-testid="stHeading"] *,
+html[data-theme="dark"] [data-testid="stCaption"],
+html[data-theme="dark"] [data-testid="stCaption"] *,
+html[data-theme="dark"] [data-testid="stWidgetLabel"],
+html[data-theme="dark"] [data-testid="stWidgetLabel"] *,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6 {
+    color: #111111 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #111111 !important;
 }
 [data-testid="stDownloadButton"] button {
     background-color: #1f4e79 !important;
@@ -169,13 +211,18 @@ iframe[title="streamlit_menu"] {
 }
 .block-container { padding-top: 0.45rem; padding-bottom: 2.4rem; max-width: 1280px; }
 div[class*="st-key-yi_topbar"] {
-    background: #fff;
-    border: 1px solid #e6eef6;
+    background: var(--yi-canvas, #fff);
+    border: 1px solid var(--yi-border, #e6eef6);
     border-radius: 14px;
     padding: 2px 14px 2px 10px !important;
     margin-bottom: 14px;
     box-shadow: 0 8px 24px rgba(26, 54, 93, 0.06);
     width: 100% !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_topbar"] {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+    box-shadow: none !important;
 }
 .yi-spacer { display: none; }
 div[class*="st-key-yi_topbar"] > div[data-testid="stHorizontalBlock"],
@@ -295,6 +342,24 @@ div[class*="st-key-yi_user"] button {
     font-weight: 600 !important;
     color: #3d4f63 !important;
 }
+div[class*="st-key-yi_user"] button * {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #3d4f63 !important;
+    -webkit-text-fill-color: #3d4f63 !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_user"] button {
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #e6edf3 !important;
+}
+html[data-theme="dark"] div[class*="st-key-yi_user"] button * {
+    background: transparent !important;
+    border: none !important;
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3 !important;
+}
 div[class*="st-key-yi_user"] button:hover {
     color: #1a5fb4 !important;
     border-color: #1a5fb4 !important;
@@ -312,6 +377,11 @@ div[class*="st-key-yi_user"] button:hover {
     line-height: 2.4rem !important;
     margin: 0 !important;
 }
+html[data-theme="dark"] .yi-cal-month,
+html[data-theme="dark"] .yi-cal-month * {
+    color: #f4f6f8 !important;
+    -webkit-text-fill-color: #f4f6f8 !important;
+}
 .yi-card {
     background: #fff;
     border-radius: 16px;
@@ -323,14 +393,74 @@ div[data-testid="stButton"] > button {
     border-radius: 10px !important;
     font-weight: 600 !important;
 }
-div[data-testid="stButton"] > button[kind="primary"] {
+div[data-testid="stButton"] > button[kind="primary"],
+[data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button {
     background: #1a5fb4 !important;
     border: 1px solid #1a5fb4 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
-div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #fff !important;
-    color: #3d4f63 !important;
-    border: 1px solid #d7e3ef !important;
+div[data-testid="stButton"] > button[kind="primary"] *,
+[data-testid="stFormSubmitButton"] button *,
+[data-testid="stDownloadButton"] button * {
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploaderDropzone"] {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d4e3 !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stFileUploader"] button *,
+[data-testid="stFileUploaderDropzone"] *,
+[data-testid="stFileUploaderDropzoneInstructions"] * {
+    background: transparent !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+.yi-table-wrap {
+    width: 100%;
+    overflow: auto;
+    background: #ffffff !important;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+}
+.yi-table-wrap table,
+.yi-table,
+[data-testid="stTable"] table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff !important;
+    color: #111111 !important;
+}
+.yi-table-wrap th,
+.yi-table th,
+[data-testid="stTable"] th {
+    background: #f4f6f8 !important;
+    color: #111111 !important;
+    font-weight: 700;
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #d0d7de;
+}
+.yi-table-wrap td,
+.yi-table td,
+[data-testid="stTable"] td {
+    background: #ffffff !important;
+    color: #111111 !important;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e6edf3;
+}
+div[data-testid="stButton"] > button[kind="secondary"] * {
+    background: transparent !important;
+    border: none !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
 }
 .yi-chip {
     display: inline-block;
@@ -441,6 +571,159 @@ div[class*="st-key-yi_user"] button:hover {
     color: #1a5fb4 !important;
     border-color: #1a5fb4 !important;
     background: #fff !important;
+}
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
+    color-scheme: light !important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    color-scheme: light !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) input,
+    html:not([data-theme="light"]) textarea,
+    html:not([data-theme="light"]) select {
+        color-scheme: light !important;
+    }
+}
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stNumberInput"] [data-baseweb="input"],
+[data-testid="stDateInput"] [data-baseweb="input"],
+[data-testid="stTimeInput"] [data-baseweb="input"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stTextArea"] [data-baseweb="textarea"] {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d4e3 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+html[data-theme="dark"] [data-testid="stTextInput"] [data-baseweb="input"],
+html[data-theme="dark"] [data-testid="stTextArea"] [data-baseweb="textarea"],
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d4e3 !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] span,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
+    color: var(--yi-input-fg, #1f2328) !important;
+    -webkit-text-fill-color: var(--yi-input-fg, #1f2328) !important;
+    background: transparent !important;
+}
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] span,
+html[data-theme="dark"] [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stTextArea"] textarea {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stRadio"] p,
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+    color: #1f2328 !important;
+    -webkit-text-fill-color: #1f2328 !important;
+    opacity: 1 !important;
+}
+html[data-theme="dark"] [data-testid="stRadio"] p,
+html[data-theme="dark"] [data-testid="stRadio"] label,
+html[data-theme="dark"] [data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stTextInput"] [data-baseweb="base-input"],
+[data-testid="stTextInput"] [data-baseweb="base-input"] > div,
+[data-testid="stTextArea"] [data-baseweb="base-input"],
+[data-testid="stTextArea"] [data-baseweb="base-input"] > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stSelectbox"] input {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    color: var(--yi-input-fg, #111111) !important;
+    -webkit-text-fill-color: var(--yi-input-fg, #111111) !important;
+    caret-color: var(--yi-input-fg, #111111) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stDateInput"],
+[data-testid="stDateInputField"],
+[data-testid="stTimeInput"],
+[data-testid="stTextArea"] textarea,
+[data-testid="stExpander"],
+[data-testid="stExpander"] details,
+[data-testid="stExpander"] summary {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    color-scheme: light !important;
+}
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stDateInputField"] *,
+[role="spinbutton"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    caret-color: #111111 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color-scheme: light !important;
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) [data-testid="stTextInput"] input,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] input,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] span,
+    html:not([data-theme="light"]) [data-testid="stSelectbox"] div,
+    html:not([data-theme="light"]) [data-testid="stTextArea"] textarea,
+    html:not([data-theme="light"]) [data-testid="stWidgetLabel"] *,
+    html:not([data-theme="light"]) [data-testid="stHeading"] * {
+        color: #111111 !important;
+        -webkit-text-fill-color: #111111 !important;
+        caret-color: #111111 !important;
+    }
+}
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stTextArea"] textarea,
+html[data-theme="dark"] [data-testid="stDateInput"] input,
+html[data-theme="dark"] [data-testid="stSelectbox"] input {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    caret-color: #111111 !important;
+}
+[data-testid="InputInstructions"],
+[data-testid="InputInstructions"] * {
+    color: #3d4a57 !important;
+}
+html[data-theme="dark"] [data-testid="InputInstructions"],
+html[data-theme="dark"] [data-testid="InputInstructions"] * {
+    color: #c5ccd4 !important;
+}
+html[data-theme="dark"] .yi-day,
+html[data-theme="dark"] .yi-cell-num {
+    color: #f4f6f8 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input {
+    background: #87CEEB !important;
+    background-color: #87CEEB !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
+    color-scheme: light !important;
 }
 </style>
 """

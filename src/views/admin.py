@@ -76,7 +76,7 @@ def _render_survey_edit(username: str, survey: dict) -> None:
     _bind_widget(help_key, str(schema.get("instructions") or ""))
 
     st.markdown("**조사 수정**")
-    st.caption("제목·시작일·종료일을 바꾼 뒤 「수정 저장」을 누르세요. 양식 열은 바로 추가·삭제됩니다.")
+    st.caption("제목·시작일·종료일을 바꾼 뒤 「수정 저장」을 누르세요. 양식 열 추가·삭제는 이 화면에서만 합니다.")
     title = st.text_input("제목 수정", key=title_key)
     start_col, end_col = st.columns(2)
     with start_col:
@@ -92,7 +92,8 @@ def _render_survey_edit(username: str, survey: dict) -> None:
     schema_payload = None
     if generic:
         instructions = st.text_area("내용 수정", key=help_key)
-        st.markdown("**양식 열**")
+        st.markdown("**열 추가 · 삭제**")
+        st.caption("AI가 만든 칸이 틀리면 여기서 열을 넣거나 지울 수 있습니다. 성명·회사·팀은 유지됩니다.")
         columns = list(schema.get("columns") or [])
         if columns:
             st.dataframe(

@@ -158,8 +158,38 @@ div[class*="st-key-yi_user"] button * {
     color: #1a365d !important;
     -webkit-text-fill-color: #1a365d !important;
 }
-input, textarea, select {
+input, textarea, select, [role="spinbutton"] {
     color-scheme: light !important;
+}
+[data-testid="stDateInput"],
+[data-testid="stDateInput"] > div,
+[data-testid="stDateInput"] > div > div,
+[data-testid="stDateInputField"],
+[data-testid="stTimeInput"],
+[data-testid="stTimeInput"] > div,
+[data-testid="stTimeInput"] > div > div,
+[data-testid="stTextArea"] > div,
+[data-testid="stTextArea"] > div > div,
+[data-testid="stExpander"],
+[data-testid="stExpander"] details,
+[data-testid="stExpander"] summary,
+[data-testid="stExpanderHeader"],
+[data-testid="stExpanderDetails"],
+[data-testid="stDateInputCalendar"] {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    color-scheme: light !important;
+    border-color: #c5d4e3 !important;
+}
+[data-testid="stDateInputField"] *,
+[data-testid="stTimeInput"] *,
+[data-testid="stExpander"] summary *,
+[data-testid="stExpanderHeader"] *,
+[role="spinbutton"] {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    background-color: transparent !important;
 }
 [data-testid="stTextInput"] [data-baseweb="input"],
 [data-testid="stTextInput"] [data-baseweb="input"] div,
@@ -213,14 +243,23 @@ input, textarea, select {
 }
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
-[data-testid="stDateInput"] input,
-[data-testid="stTimeInput"] input,
-[data-testid="stSelectbox"] input,
-[data-testid="stTextArea"] textarea {
+[data-testid="stSelectbox"] input {
     background: transparent !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+}
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input,
+[data-testid="stTextArea"] textarea {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    color-scheme: light !important;
 }
 [data-testid="stSelectboxVirtualDropdown"],
 [data-baseweb="menu"],
@@ -271,6 +310,9 @@ ul[role="listbox"] li {
     background-color: #ffffff !important;
     color: #111111 !important;
     color-scheme: light !important;
+}
+[data-testid="stDataEditor"] canvas {
+    background-color: #ffffff !important;
 }
 [data-testid="stFileUploaderDropzone"],
 [data-testid="stFileUploaderDropzone"] *,
@@ -1770,67 +1812,7 @@ def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
             width="stretch",
         )
         st.caption("명부에 있는 인원을 아래 입력표에 미리 넣었습니다. 이번 조사에 해당하지 않으면 그 행을 지우면 됩니다.")
-    try:
-        from src.config import ROLE_ADMIN, primary_role
-        from src.schema import add_schema_column, is_protected_column, remove_schema_column
-        from src.store import update_survey as save_schema
-    except Exception:
-        save_schema = None
-        ROLE_ADMIN = "admin"
-
-        def primary_role(_name):
-            return ""
-
-    if save_schema and primary_role(username) == ROLE_ADMIN:
-        st.markdown("**열 추가 · 삭제**")
-        st.caption("AI가 만든 칸이 틀리면 여기서 열을 넣거나 지울 수 있습니다. 성명·회사·팀은 유지됩니다.")
-        add_col, del_col = st.columns(2)
-        raw_schema = survey.get("schema") or {"columns": columns}
-        with add_col:
-            new_label = st.text_input("추가할 열 이름", key=f"ge_add_name_{survey_id}_{team}")
-            if st.button("열 추가", key=f"ge_add_btn_{survey_id}_{team}"):
-                try:
-                    save_schema(
-                        username,
-                        survey_id,
-                        str(survey.get("title") or ""),
-                        str(survey.get("period_start") or ""),
-                        str(survey.get("period_end") or ""),
-                        str(survey.get("deadline_at") or ""),
-                        schema=add_schema_column(raw_schema, new_label),
-                    )
-                    st.success(f"「{str(new_label).strip()}」 열을 추가했습니다.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(str(exc))
-        with del_col:
-            removable = [
-                str(item.get("label") or "")
-                for item in (raw_schema.get("columns") or [])
-                if not is_protected_column(str(item.get("label") or ""))
-            ]
-            picked = st.selectbox(
-                "삭제할 열",
-                removable if removable else ["(삭제할 열이 없습니다)"],
-                key=f"ge_del_name_{survey_id}_{team}",
-            )
-            if st.button("열 삭제", key=f"ge_del_btn_{survey_id}_{team}"):
-                try:
-                    if not removable:
-                        raise ValueError("삭제할 열이 없습니다.")
-                    save_schema(
-                        username,
-                        survey_id,
-                        str(survey.get("title") or ""),
-                        str(survey.get("period_start") or ""),
-                        str(survey.get("period_end") or ""),
-                        str(survey.get("deadline_at") or ""),
-                        schema=remove_schema_column(raw_schema, str(picked)),
-                    )
-                    st.success(f"「{picked}」 열을 삭제했습니다.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(str(exc))
+    st.caption("열을 넣거나 지울 때는 생산관리팀 관리자메뉴 「조사 관리」에서 수정합니다.")
     edited = st.data_editor(
         frame,
         num_rows="dynamic",
@@ -1910,7 +1892,7 @@ def _render_hq_page_live(username: str) -> None:
         for item in list_surveys(username)
         if is_generic(item) and item.get("is_published")
     ]
-    st.caption("관리자가 배포한 본사 요청만 여기에 보입니다. 양식 만들기는 관리자메뉴에서 합니다.")
+    st.caption("관리자가 배포한 본사 요청만 여기에 보입니다. 열 추가·삭제는 생산관리팀 관리자메뉴 「조사 관리」에서 합니다.")
 
     def pick_survey(items, key):
         labels = {}
@@ -2067,7 +2049,7 @@ def _render_survey_edit_live(username: str, survey: dict) -> None:
         st.session_state[help_key] = str(schema.get("instructions") or "")
 
     st.markdown("**조사 수정**")
-    st.caption("제목·시작일·종료일을 바꾼 뒤 「수정 저장」을 누르세요. 양식 열은 바로 추가·삭제됩니다.")
+    st.caption("제목·시작일·종료일을 바꾼 뒤 「수정 저장」을 누르세요. 양식 열 추가·삭제는 이 화면에서만 합니다.")
     title = st.text_input("제목 수정", key=title_key)
     start_col, end_col = st.columns(2)
     with start_col:
@@ -2082,6 +2064,8 @@ def _render_survey_edit_live(username: str, survey: dict) -> None:
     schema_payload = None
     if generic:
         st.text_area("내용 수정", key=help_key)
+        st.markdown("**열 추가 · 삭제**")
+        st.caption("AI가 만든 칸이 틀리면 여기서 열을 넣거나 지울 수 있습니다. 성명·회사·팀은 유지됩니다.")
         columns = list(schema.get("columns") or [])
         if columns:
             st.dataframe(
