@@ -62,10 +62,19 @@ _PAGE_TEXT_CSS = """
 [data-testid="stWidgetLabel"] *,
 .stHeading, .stHeading *,
 .stCaption, .stCaption *,
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6,
+[data-testid="stMarkdown"] p,
+[data-testid="stMarkdown"] span,
+[data-testid="stMarkdown"] strong,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] strong {
     color: #000000 !important;
     opacity: 1 !important;
     -webkit-text-fill-color: #000000 !important;
+}
+div[class*="st-key-cal_today"] {
+    display: none !important;
 }
 [data-testid="stDownloadButton"] button {
     background-color: #1f4e79 !important;
@@ -79,6 +88,18 @@ h1, h2, h3, h4, h5, h6 {
 [data-testid="stDownloadButton"] button div {
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
+}
+.yi-cal-month,
+.yi-cal-month * {
+    text-align: center !important;
+    font-size: 1.7rem !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    line-height: 2.4rem !important;
+    margin: 0 !important;
 }
 </style>
 """
@@ -451,6 +472,207 @@ def _render_prodadmin_excel_roster(username: str) -> None:
         )
 
 
+def _shift_month_app(value, delta: int):
+    from datetime import date
+
+    month = value.month - 1 + delta
+    year = value.year + month // 12
+    month = month % 12 + 1
+    return date(year, month, 1)
+
+
+def _nav_month_button(label: str, key: str) -> bool:
+    try:
+        return st.button(label, key=key, width="stretch")
+    except TypeError:
+        return st.button(label, key=key, use_container_width=True)
+
+
+def _render_calendar_month_nav(month_cursor) -> None:
+    """이전달 · 2026년 8월 · 다음달. app.py에 두어 Cloud가 src 옛 파일을 써도 반영된다."""
+    try:
+        prev_col, month_col, next_col = st.columns([1, 1.7, 1], vertical_alignment="center")
+    except TypeError:
+        prev_col, month_col, next_col = st.columns([1, 1.7, 1])
+    with prev_col:
+        if _nav_month_button("이전달", "cal_prev"):
+            st.session_state["cal_month"] = _shift_month_app(month_cursor, -1)
+            st.rerun()
+    with month_col:
+        label = f"{month_cursor.year}년 {month_cursor.month}월"
+        html = (
+            f"<div style='text-align:center;font-size:28px;font-weight:800;"
+            f"color:#111111;-webkit-text-fill-color:#111111;opacity:1;"
+            f"line-height:40px;margin:0;background:transparent;'>{label}</div>"
+        )
+        try:
+            st.html(html)
+        except Exception:
+            st.markdown(
+                f"<h2 style='text-align:center;margin:0.15rem 0;color:#000000;"
+                f"-webkit-text-fill-color:#000000;font-size:28px;font-weight:800;'>"
+                f"{label}</h2>",
+                unsafe_allow_html=True,
+            )
+    with next_col:
+        if _nav_month_button("다음달", "cal_next"):
+            st.session_state["cal_month"] = _shift_month_app(month_cursor, 1)
+            st.rerun()
+
+
+def _render_overtime_calendar(username: str, team=None, read_only: bool = False, **kwargs) -> None:
+    from datetime import date
+
+    from src.config import CAFETERIA_MIN_HEADCOUNT, cafeteria_operating
+    from src.store import (
+        list_entries,
+        list_factory_overtime_counts,
+        list_overtime_people,
+        ensure_open_overtime_survey,
+    )
+    from src.views.calendar_page import (
+        _cell_html,
+        _counts_by_date,
+        _month_start,
+        _render_readonly_list,
+        _render_team_date_editor,
+        _sunday_first_weeks,
+        _team_entries,
+    )
+    from src.views.survey_editor import _render_excel_io
+
+    st.header("특근인원")
+    st.caption(
+        "날짜를 누르면 그날 공장 전체 특근 명단을 볼 수 있습니다. "
+        f"입력은 우리 팀만 가능합니다. 달력 인원 수는 공장 전체이며, {CAFETERIA_MIN_HEADCOUNT}명 이상이면 식당을 운영합니다."
+    )
+    today = date.today()
+    if "cal_month" not in st.session_state:
+        st.session_state["cal_month"] = _month_start(today)
+    month_cursor = st.session_state["cal_month"]
+    _render_calendar_month_nav(month_cursor)
+
+    survey = ensure_open_overtime_survey(username)
+    factory_counts = list_factory_overtime_counts(username)
+    team_counts = _counts_by_date(
+        [item for item in list_overtime_people(username) if team and str(item.get("team") or "") == team]
+    )
+    left, right = st.columns([7, 5], gap="large")
+    with left:
+        st.markdown('<div class="yi-card">', unsafe_allow_html=True)
+        headers = ["일", "월", "화", "수", "목", "금", "토"]
+        head_cols = st.columns(7)
+        for index, label in enumerate(headers):
+            css = "yi-sun" if index == 0 else ("yi-sat" if index == 6 else "yi-day")
+            head_cols[index].markdown(
+                f"<div class='{css}' style='text-align:center'>{label}</div>",
+                unsafe_allow_html=True,
+            )
+        selected = st.session_state.get("selected_date")
+        for week in _sunday_first_weeks(month_cursor.year, month_cursor.month):
+            cols = st.columns(7)
+            for dow, day_num in enumerate(week):
+                with cols[dow]:
+                    if day_num == 0:
+                        st.write("")
+                        continue
+                    day = date(month_cursor.year, month_cursor.month, day_num)
+                    iso = day.isoformat()
+                    factory_count = factory_counts.get(iso, 0)
+                    st.markdown(
+                        _cell_html(day_num, dow, factory_count, True, selected == iso),
+                        unsafe_allow_html=True,
+                    )
+                    try:
+                        clicked = st.button(
+                            "열기",
+                            key=f"cal_day_{iso}",
+                            type="primary" if selected == iso else "secondary",
+                            width="stretch",
+                        )
+                    except TypeError:
+                        clicked = st.button(
+                            "열기",
+                            key=f"cal_day_{iso}",
+                            type="primary" if selected == iso else "secondary",
+                            use_container_width=True,
+                        )
+                    if clicked:
+                        st.session_state["selected_date"] = iso
+                        st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right:
+        st.markdown('<div class="yi-card">', unsafe_allow_html=True)
+        if not st.session_state.get("selected_date"):
+            st.info("달력에서 특근일을 선택하세요. 토요일은 파란색입니다.")
+            st.markdown("</div>", unsafe_allow_html=True)
+            return
+        selected_day = date.fromisoformat(str(st.session_state["selected_date"]))
+        weekday = "월화수목금토일"[selected_day.weekday()]
+        st.subheader(f"{selected_day.month}/{selected_day.day} ({weekday})")
+        factory_count = factory_counts.get(selected_day.isoformat(), 0)
+        team_count = team_counts.get(selected_day.isoformat(), 0)
+        cafe = cafeteria_operating(factory_count)
+        st.markdown(
+            "<div class='yi-summary'>"
+            f"<div class='yi-metric'><span>공장 전체</span><b>{factory_count}명</b></div>"
+            f"<div class='yi-metric'><span>식당</span><b>{'운영' if cafe else '미운영'}</b></div>"
+            f"<div class='yi-metric'><span>우리 팀</span><b>{(str(team_count) + '명') if team else '-'}</b></div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        if cafe:
+            st.success(f"특근 {factory_count}명 · 식당 운영 ({CAFETERIA_MIN_HEADCOUNT}명 이상)")
+        else:
+            st.caption(f"식당은 특근 {CAFETERIA_MIN_HEADCOUNT}명부터 운영합니다.")
+        day_rows = list_overtime_people(username, selected_day.isoformat())
+        by_company: dict[str, int] = {}
+        by_team: dict[str, int] = {}
+        for item in day_rows:
+            company = str(item.get("company") or "미지정")
+            by_company[company] = by_company.get(company, 0) + 1
+            team_name = str(item.get("team") or "미지정")
+            by_team[team_name] = by_team.get(team_name, 0) + 1
+        if by_team:
+            chips = "".join(f"<span class='yi-chip'>{name} {count}명</span>" for name, count in by_team.items())
+            st.markdown(chips, unsafe_allow_html=True)
+        elif by_company:
+            chips = "".join(f"<span class='yi-chip'>{name} {count}명</span>" for name, count in by_company.items())
+            st.markdown(chips, unsafe_allow_html=True)
+        st.markdown("**공장 전체 특근 명단**")
+        _render_readonly_list(day_rows)
+        if read_only:
+            st.caption("공장장은 조회만 가능합니다.")
+        elif team:
+            st.divider()
+            st.markdown(f"**{team} 입력**")
+            st.caption("아래 명단만 저장됩니다. 위 전체 명단은 모든 팀이 볼 수 있습니다.")
+            _render_team_date_editor(username, team, survey, selected_day.isoformat())
+            with st.expander("엑셀로 올리기 · 받기"):
+                _render_excel_io(
+                    username,
+                    team,
+                    survey,
+                    _team_entries(list_entries(username, int(survey["id"])), team),
+                )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _install_calendar_nav_patch() -> None:
+    import src.views.calendar_page as calendar_page
+
+    wrapped = _render_overtime_calendar
+    wrapped._yi_cal_nav_patched = True
+    calendar_page.render_overtime_calendar = wrapped
+    try:
+        import src.views.shell as shell
+
+        shell.render_overtime_calendar = wrapped
+    except Exception:
+        pass
+
+
 def _install_admin_roster_patch() -> None:
     try:
         import src.excel_io as excel_io
@@ -501,6 +723,7 @@ def _install_admin_roster_patch() -> None:
 
 def _render_app(authenticator) -> None:
     st.session_state.pop("_yi_excel_roster_shown", None)
+    _install_calendar_nav_patch()
     _install_admin_roster_patch()
     from src.views.shell import render_signed_in
 
