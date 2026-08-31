@@ -107,8 +107,7 @@ button[kind="primary"],
 [data-testid="stBaseButton-primary"],
 [data-testid="stBaseButton-primaryFormSubmit"],
 [data-testid="stFormSubmitButton"] button,
-[data-testid="stDownloadButton"] button,
-[data-testid="stFileUploader"] button {
+[data-testid="stDownloadButton"] button {
     background-color: #1a5fb4 !important;
     border: 1px solid #1a5fb4 !important;
     color: #ffffff !important;
@@ -118,8 +117,7 @@ button[kind="primary"] *,
 [data-testid="stBaseButton-primary"] *,
 [data-testid="stBaseButton-primaryFormSubmit"] *,
 [data-testid="stFormSubmitButton"] button *,
-[data-testid="stDownloadButton"] button *,
-[data-testid="stFileUploader"] button * {
+[data-testid="stDownloadButton"] button * {
     background: transparent !important;
     border: none !important;
     color: #ffffff !important;
@@ -233,12 +231,88 @@ ul[role="listbox"] li {
     color: #111111 !important;
     -webkit-text-fill-color: #111111 !important;
 }
-[data-testid="stDataFrame"],
-[data-testid="stDataFrame"] *,
-[data-testid="stDataEditor"],
-[data-testid="stDataEditor"] * {
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] [data-testid="stBaseButton-secondary"],
+[data-testid="stFileUploader"] [data-testid="stBaseButton-primary"] {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d4e3 !important;
     color: #111111 !important;
     -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stFileUploader"] button *,
+[data-testid="stFileUploader"] [data-testid="stBaseButton-secondary"] *,
+[data-testid="stFileUploader"] [data-testid="stBaseButton-primary"] * {
+    background: transparent !important;
+    border: none !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+.stApp, [data-testid="stDataFrame"], [data-testid="stDataEditor"],
+[data-testid="stDataFrame"] *, [data-testid="stDataEditor"] * {
+    --gdg-bg-cell: #ffffff !important;
+    --gdg-bg-cell-medium: #f6f8fa !important;
+    --gdg-bg-header: #f4f6f8 !important;
+    --gdg-bg-header-has-focus: #ffffff !important;
+    --gdg-bg-header-hovered: #eef2f6 !important;
+    --gdg-text-dark: #111111 !important;
+    --gdg-text-medium: #3d4a57 !important;
+    --gdg-text-light: #656d76 !important;
+    --gdg-text-header: #111111 !important;
+    --gdg-text-group-header: #111111 !important;
+    --gdg-border-color: #d0d7de !important;
+    --gdg-accent-color: #1a5fb4 !important;
+    --gdg-accent-fg: #ffffff !important;
+    --gdg-bg-bubble: #f6f8fa !important;
+    --gdg-link-color: #1a5fb4 !important;
+}
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"],
+[data-testid="stTable"] {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    color-scheme: light !important;
+}
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploaderDropzone"] *,
+[data-testid="stFileUploaderDropzoneInstructions"],
+[data-testid="stFileUploaderDropzoneInstructions"] * {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+.yi-table-wrap {
+    width: 100%;
+    overflow: auto;
+    background: #ffffff !important;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+}
+.yi-table-wrap table,
+.yi-table,
+[data-testid="stTable"] table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff !important;
+    color: #111111 !important;
+}
+.yi-table-wrap th,
+.yi-table th,
+[data-testid="stTable"] th {
+    background: #f4f6f8 !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    font-weight: 700;
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #d0d7de;
+}
+.yi-table-wrap td,
+.yi-table td,
+[data-testid="stTable"] td {
+    background: #ffffff !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e6edf3;
 }
 [data-testid="stFileUploader"] small,
 [data-testid="stFileUploader"] span,
@@ -273,10 +347,14 @@ input::placeholder, textarea::placeholder {
         -webkit-text-fill-color: #111111 !important;
     }
     html button[kind="primary"] *,
-    html [data-testid="stDownloadButton"] button *,
-    html [data-testid="stFileUploader"] button * {
+    html [data-testid="stDownloadButton"] button * {
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
+    }
+    html [data-testid="stFileUploader"] button,
+    html [data-testid="stFileUploader"] button * {
+        color: #111111 !important;
+        -webkit-text-fill-color: #111111 !important;
     }
 }
 div[class*="st-key-cal_today"] {
@@ -442,6 +520,56 @@ def _inject_css(css: str) -> None:
 def _inject_login_styles() -> None:
     _inject_css(_PAGE_TEXT_CSS)
     _inject_css(_LOGIN_CSS)
+
+
+def _install_light_table_patch() -> None:
+    """st.dataframe is a canvas grid; CSS cannot recolor cells, so render HTML."""
+    if getattr(st, "_yi_light_table_patch", False):
+        return
+    import pandas as pd
+
+    original = st.dataframe
+
+    def _light_dataframe(data=None, *args, **kwargs):
+        on_select = kwargs.get("on_select", "ignore")
+        if on_select not in (None, "ignore"):
+            return original(data, *args, **kwargs)
+        try:
+            if data is None:
+                frame = pd.DataFrame()
+            elif isinstance(data, pd.DataFrame):
+                frame = data
+            else:
+                frame = pd.DataFrame(data)
+            column_order = kwargs.get("column_order")
+            if column_order:
+                ordered = [name for name in column_order if name in frame.columns]
+                rest = [name for name in frame.columns if name not in ordered]
+                frame = frame[ordered + rest]
+            hide_index = kwargs.get("hide_index")
+            if hide_index is True:
+                show_index = False
+            elif hide_index is False:
+                show_index = True
+            else:
+                show_index = not isinstance(frame.index, pd.RangeIndex)
+            table = frame.fillna("").to_html(
+                index=show_index, classes="yi-table", border=0, justify="left"
+            )
+            height = kwargs.get("height")
+            extra = f"max-height:{height}px;" if isinstance(height, int) else ""
+            st.markdown(
+                f'<div class="yi-table-wrap" style="width:100%;{extra}">{table}</div>',
+                unsafe_allow_html=True,
+            )
+        except Exception:
+            return original(data, *args, **kwargs)
+
+    st.dataframe = _light_dataframe
+    st._yi_light_table_patch = True
+
+
+_install_light_table_patch()
 
 
 def _render_site_title() -> None:
@@ -2181,6 +2309,7 @@ def _render_app(authenticator) -> None:
     _install_generic_editor_patch()
     _install_hq_page_patch()
     _install_survey_edit_patch()
+    _install_light_table_patch()
     from src.views.shell import render_signed_in
 
     _inject_css(_PAGE_TEXT_CSS)

@@ -395,8 +395,7 @@ div[data-testid="stButton"] > button {
 }
 div[data-testid="stButton"] > button[kind="primary"],
 [data-testid="stFormSubmitButton"] button,
-[data-testid="stDownloadButton"] button,
-[data-testid="stFileUploader"] button {
+[data-testid="stDownloadButton"] button {
     background: #1a5fb4 !important;
     border: 1px solid #1a5fb4 !important;
     color: #ffffff !important;
@@ -404,12 +403,58 @@ div[data-testid="stButton"] > button[kind="primary"],
 }
 div[data-testid="stButton"] > button[kind="primary"] *,
 [data-testid="stFormSubmitButton"] button *,
-[data-testid="stDownloadButton"] button *,
-[data-testid="stFileUploader"] button * {
+[data-testid="stDownloadButton"] button * {
     background: transparent !important;
     border: none !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
+}
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploaderDropzone"] {
+    background-color: #ffffff !important;
+    border: 1px solid #c5d4e3 !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stFileUploader"] button *,
+[data-testid="stFileUploaderDropzone"] *,
+[data-testid="stFileUploaderDropzoneInstructions"] * {
+    background: transparent !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+.yi-table-wrap {
+    width: 100%;
+    overflow: auto;
+    background: #ffffff !important;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+}
+.yi-table-wrap table,
+.yi-table,
+[data-testid="stTable"] table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff !important;
+    color: #111111 !important;
+}
+.yi-table-wrap th,
+.yi-table th,
+[data-testid="stTable"] th {
+    background: #f4f6f8 !important;
+    color: #111111 !important;
+    font-weight: 700;
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #d0d7de;
+}
+.yi-table-wrap td,
+.yi-table td,
+[data-testid="stTable"] td {
+    background: #ffffff !important;
+    color: #111111 !important;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e6edf3;
 }
 div[data-testid="stButton"] > button[kind="secondary"] * {
     background: transparent !important;
