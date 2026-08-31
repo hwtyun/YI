@@ -105,10 +105,14 @@ div[class*="st-key-cal_today"] {
     background: #fff4e5 !important;
     color: #b35c00 !important;
 }
+.yi-tag-off {
+    background: #f4f6f8 !important;
+    color: #7a8794 !important;
+}
 .yi-cell {
-    height: 5.8rem !important;
-    min-height: 5.8rem !important;
-    max-height: 5.8rem !important;
+    height: 7.6rem !important;
+    min-height: 7.6rem !important;
+    max-height: 7.6rem !important;
     padding: 4px 2px 2px 2px !important;
     display: flex !important;
     flex-direction: column !important;
@@ -118,7 +122,7 @@ div[class*="st-key-cal_today"] {
 .yi-cell-num { text-align: center; font-size: 0.95rem; margin-bottom: 2px !important; }
 .yi-cell-meta {
     flex: 1;
-    min-height: 2.7rem;
+    min-height: 4.4rem;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -127,18 +131,17 @@ div[class*="st-key-cal_today"] {
 .yi-tag {
     display: block !important;
     border-radius: 8px !important;
-    padding: 1px 4px !important;
+    padding: 2px 4px !important;
     margin: 0 2px !important;
-    font-size: 0.62rem !important;
+    font-size: 0.64rem !important;
     font-weight: 600 !important;
     text-align: center !important;
     line-height: 1.3 !important;
-    white-space: nowrap !important;
     overflow: hidden !important;
 }
 .yi-tag-spacer { visibility: hidden !important; background: transparent !important; }
 [data-testid="stMarkdownContainer"]:has(.yi-cell) {
-    min-height: 5.8rem !important;
+    min-height: 7.6rem !important;
 }
 [data-testid="stMarkdownContainer"]:has(.yi-cell) p {
     margin: 0 !important;
@@ -910,19 +913,16 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
     def cell_html(day_num: int, dow: int, headcount: int, meals: int, selected: bool) -> str:
         css = "yi-sun" if dow == 0 else ("yi-sat" if dow == 6 else "yi-day")
         on = " yi-cell-on" if selected else ""
-        if headcount:
-            line1 = f"<span class='yi-tag yi-tag-count'>특근 {headcount} · 식수 {meals}</span>"
-            if meals >= CAFETERIA_MIN_HEADCOUNT:
-                line2 = "<span class='yi-tag yi-tag-cafe'>식당운영</span>"
-            else:
-                line2 = "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
+        line1 = f"<span class='yi-tag yi-tag-count'>특근 {headcount}명</span>"
+        line2 = f"<span class='yi-tag yi-tag-meal'>식수 {meals}명</span>"
+        if meals >= CAFETERIA_MIN_HEADCOUNT:
+            line3 = "<span class='yi-tag yi-tag-cafe'>식당운영</span>"
         else:
-            line1 = "<span class='yi-tag yi-tag-open'>입력</span>"
-            line2 = "<span class='yi-tag yi-tag-spacer'>&nbsp;</span>"
+            line3 = "<span class='yi-tag yi-tag-off'>식당미운영</span>"
         return (
             f"<div class='yi-cell{on}'>"
             f"<div class='{css} yi-cell-num'>{day_num}</div>"
-            f"<div class='yi-cell-meta'>{line1}{line2}</div>"
+            f"<div class='yi-cell-meta'>{line1}{line2}{line3}</div>"
             "</div>"
         )
 
