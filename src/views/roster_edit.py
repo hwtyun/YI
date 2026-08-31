@@ -25,7 +25,10 @@ def render_team_roster_editor(username: str, allow_all_teams: bool = False) -> N
     else:
         team = str(own_team or "")
         st.subheader("인원 명부")
-        st.caption(f"**{team}** 인원만 보고, 추가·삭제할 수 있습니다. 다른 팀 명부는 바꿀 수 없습니다.")
+        st.caption(
+            f"**{team}** 특근인원만 추가·삭제할 수 있습니다. "
+            "본사요청 취합 명단은 생산관리팀이 조사마다 따로 지정하며, 여기서는 바꿀 수 없습니다."
+        )
         st.write(f"팀: **{team}**")
 
     with st.form("add_employee_form"):

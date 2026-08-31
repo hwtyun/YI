@@ -5,7 +5,7 @@ from datetime import datetime, time
 import streamlit as st
 
 from src.auth import PASSWORD_RULE_HELP, reset_user_password_by_admin
-from src.config import SUBMITTING_TEAMS, get_user
+from src.config import SUBMITTING_TEAMS
 from src.excel_io import build_generic_workbook, build_overtime_workbook
 from src.schedule import default_deadline, default_overtime_weekend, default_survey_title
 from src.schema import empty_schema, entry_schema, is_generic
@@ -18,11 +18,13 @@ from src.store import (
     list_submissions,
     list_surveys,
     publish_survey,
+    survey_roster_teams,
     update_survey,
 )
 from src.views.generic_builder import render_generic_builder
 from src.views.generic_editor import render_generic_editor
 from src.views.review import render_review_home
+from src.views.survey_roster import render_survey_roster_editor
 
 ROLE_LABELS = {
     "admin": "최고 관리자",
@@ -168,6 +170,7 @@ def _render_survey_edit(username: str, survey: dict) -> None:
             "instructions": str(st.session_state.get(help_key) or "").strip(),
             "columns": columns,
         }
+        render_survey_roster_editor(username, survey)
     else:
         st.caption("특근 조사는 제목과 기간만 고칩니다. 입력 칸은 달력 화면을 씁니다.")
 
@@ -278,9 +281,18 @@ def _render_survey_manager(username: str) -> None:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         key=f"dl_admin_{survey['id']}",
                     )
-                    if get_user(username)["team"]:
-                        st.markdown("**생산관리팀 입력**")
-                        render_generic_editor(username, str(get_user(username)["team"]), survey)
+                    teams = survey_roster_teams(username, int(survey["id"]))
+                    if teams:
+                        st.markdown("**팀 입력 수정**")
+                        st.caption("취합 명단에 들어 있는 팀만 고를 수 있습니다. 생산관리팀이 모든 팀 입력을 고칠 수 있습니다.")
+                        picked_team = st.selectbox(
+                            "입력할 팀",
+                            teams,
+                            key=f"admin_hq_input_team_{survey['id']}",
+                        )
+                        render_generic_editor(username, str(picked_team), survey)
+                    else:
+                        st.info("취합 명단이 비어 있어 팀이 입력할 대상이 없습니다.")
                 else:
                     all_entries = list_entries(username, int(survey["id"]))
                     st.download_button(

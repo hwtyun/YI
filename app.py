@@ -830,8 +830,8 @@ def _render_prodadmin_excel_roster(username: str) -> None:
 
     st.subheader("재직인원 명부")
     st.caption(
-        "양식에 성명·회사·팀·고용형태를 적은 뒤 아래에서 엑셀만 올리면 바로 반영됩니다. "
-        "고용형태에 직급(이사·책임·선임·사원 등)을 적어도 정규직으로 저장합니다."
+        "특근인원 명부입니다. 엑셀로 올리면 반영됩니다. "
+        "본사요청 취합 명단은 조사 관리에서 조사마다 따로 고릅니다."
     )
     current = list_employees(username)
     left, right = st.columns(2)
@@ -1740,8 +1740,8 @@ def _hq_entry_schema(schema: dict) -> dict:
 def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
     from src.store import (
         AccessDenied,
-        list_employees,
         list_responses,
+        list_survey_roster,
         replace_team_responses,
         set_submitted,
         survey_edit_status,
@@ -1753,7 +1753,12 @@ def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
     schema = _hq_entry_schema(survey.get("schema") or {"columns": []})
     columns = list(schema.get("columns") or [])
     existing = [item for item in list_responses(username, survey_id) if item.get("team") == team]
-    employees = list_employees(username, team)
+    try:
+        employees = list_survey_roster(username, survey_id, team)
+    except Exception:
+        from src.store import list_employees
+
+        employees = list_employees(username, team)
 
     def roster_value(column, employee):
         label = str(column.get("label") or "")
@@ -1768,21 +1773,22 @@ def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
         return ""
 
     records = []
-    seen = set()
+    saved_by_key = {}
     for item in existing:
         payload = item.get("payload") or {}
         row = {str(column["label"]): payload.get(column["key"]) for column in columns}
-        records.append(row)
         name = str(row.get("성명") or row.get("이름") or "").strip()
+        company = str(row.get("회사") or row.get("소속회사") or "").strip()
         if name:
-            seen.add(name)
+            saved_by_key[(name, company)] = row
     for employee in employees:
         name = str(employee.get("name") or "").strip()
-        if name and name in seen:
-            continue
-        records.append({str(column["label"]): roster_value(column, employee) for column in columns})
-        if name:
-            seen.add(name)
+        company = str(employee.get("company") or "").strip()
+        key = (name, company)
+        if key in saved_by_key:
+            records.append(saved_by_key[key])
+        else:
+            records.append({str(column["label"]): roster_value(column, employee) for column in columns})
     labels = [str(column["label"]) for column in columns]
     if records:
         frame = pd.DataFrame(records)
@@ -1798,7 +1804,7 @@ def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
         or "아래 표에는 이 조사에 필요한 칸만 나옵니다. 주민번호·주소 같은 첨부 양식 칸은 빼 두었습니다."
     )
     if employees:
-        st.markdown("**우리 팀 인원**")
+        st.markdown("**이번 조사 취합 대상**")
         st.dataframe(
             [
                 {
@@ -1811,11 +1817,14 @@ def _render_hq_generic_editor(username: str, team, survey: dict) -> None:
             hide_index=True,
             width="stretch",
         )
-        st.caption("명부에 있는 인원을 아래 입력표에 미리 넣었습니다. 이번 조사에 해당하지 않으면 그 행을 지우면 됩니다.")
+        st.caption("생산관리팀이 이 조사에 지정한 인원만 나옵니다. 특근 명부와는 별개입니다.")
+    else:
+        st.info("이 팀에 지정된 취합 인원이 없습니다. 생산관리팀 조사 관리에서 명단을 확인해 주세요.")
+        return
     st.caption("열을 넣거나 지울 때는 생산관리팀 관리자메뉴 「조사 관리」에서 수정합니다.")
     edited = st.data_editor(
         frame,
-        num_rows="dynamic",
+        num_rows="fixed",
         hide_index=True,
         width="stretch",
         key=f"generic_ed_{survey_id}_{team}_{'_'.join(labels)}",
@@ -1892,7 +1901,19 @@ def _render_hq_page_live(username: str) -> None:
         for item in list_surveys(username)
         if is_generic(item) and item.get("is_published")
     ]
-    st.caption("관리자가 배포한 본사 요청만 여기에 보입니다. 열 추가·삭제는 생산관리팀 관리자메뉴 「조사 관리」에서 합니다.")
+    try:
+        from src.store import team_on_survey_roster
+
+        if role != ROLE_DIRECTOR and team:
+            surveys = [
+                item for item in surveys if team_on_survey_roster(int(item["id"]), str(team))
+            ]
+    except Exception:
+        pass
+    st.caption(
+        "생산관리팀이 이 팀에 지정한 본사 요청만 보입니다. "
+        "취합 명단은 특근인원과 별개이며, 조사 관리에서만 바꿉니다."
+    )
 
     def pick_survey(items, key):
         labels = {}
@@ -1939,7 +1960,7 @@ def _render_hq_page_live(username: str) -> None:
         return
     st.subheader(f"{team} 입력")
     if not surveys:
-        st.info("배포된 본사 요청 취합이 없습니다.")
+        st.info("이 팀에 지정된 본사 요청 취합이 없습니다.")
         return
     survey = pick_survey(surveys, "hq_survey_select")
     st.write(f"마감 {survey['deadline_at']}")
@@ -2134,6 +2155,12 @@ def _render_survey_edit_live(username: str, survey: dict) -> None:
             "instructions": str(st.session_state.get(help_key) or "").strip(),
             "columns": columns,
         }
+        try:
+            from src.views.survey_roster import render_survey_roster_editor
+
+            render_survey_roster_editor(username, survey)
+        except Exception:
+            st.caption("취합 명단 화면을 불러오지 못했습니다.")
     else:
         st.caption("특근 조사는 제목과 기간만 고칩니다. 입력 칸은 달력 화면을 씁니다.")
     if st.button("수정 저장", type="primary", key=f"sv_save_{survey_id}"):

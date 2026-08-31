@@ -19,7 +19,7 @@ from src.config import (
 from src.db import get_connection
 from src.hours import parse_work_hours
 from src.schedule import is_past_deadline
-from src.schema import KIND_OVERTIME, is_generic, normalize_schema, slim_schema
+from src.schema import KIND_GENERIC, KIND_OVERTIME, is_generic, normalize_schema, slim_schema
 
 
 class AccessDenied(PermissionError):
@@ -133,6 +133,12 @@ def create_survey(
             (title, period_start, period_end, deadline_at, username, now, kind_value, schema_json),
         )
         survey_id = int(cursor.lastrowid)
+        if kind_value == KIND_GENERIC:
+            _seed_survey_roster_conn(conn, survey_id, now)
+            conn.execute(
+                "UPDATE surveys SET hq_roster_ready = 1 WHERE id = ?",
+                (survey_id,),
+            )
         conn.commit()
         return survey_id
     finally:
@@ -144,11 +150,15 @@ def publish_survey(username: str, survey_id: int) -> None:
     now = _now()
     conn = get_connection()
     try:
-        exists = conn.execute("SELECT id FROM surveys WHERE id = ?", (survey_id,)).fetchone()
+        exists = conn.execute("SELECT id, kind FROM surveys WHERE id = ?", (survey_id,)).fetchone()
         if exists is None:
             raise ValueError("조사를 찾을 수 없습니다.")
         conn.execute("UPDATE surveys SET is_published = 1 WHERE id = ?", (survey_id,))
-        for team in SUBMITTING_TEAMS:
+        teams = SUBMITTING_TEAMS
+        if str(exists["kind"] or KIND_OVERTIME) == KIND_GENERIC:
+            _ensure_survey_roster_conn(conn, survey_id, now)
+            teams = _survey_roster_teams_conn(conn, survey_id) or []
+        for team in teams:
             conn.execute(
                 """
                 INSERT INTO submissions (survey_id, team, is_submitted, submitted_at, updated_at)
@@ -309,6 +319,268 @@ def get_survey_by_id(survey_id: int) -> dict[str, Any] | None:
             (survey_id,),
         ).fetchone()
         return None if row is None else _survey_dict(row)
+    finally:
+        conn.close()
+
+
+def _seed_survey_roster_conn(conn: Any, survey_id: int, now: str) -> int:
+    existing = conn.execute(
+        "SELECT name, company, team FROM survey_roster WHERE survey_id = ?",
+        (survey_id,),
+    ).fetchall()
+    seen = {(str(row["name"]), str(row["company"]), str(row["team"])) for row in existing}
+    employees = conn.execute(
+        "SELECT name, company, team, employment_type FROM employees"
+    ).fetchall()
+    count = 0
+    for item in employees:
+        key = (str(item["name"]), str(item["company"]), str(item["team"]))
+        if key in seen:
+            continue
+        conn.execute(
+            """
+            INSERT INTO survey_roster (survey_id, name, company, team, employment_type, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (survey_id, item["name"], item["company"], item["team"], item["employment_type"], now),
+        )
+        seen.add(key)
+        count += 1
+    return count
+
+
+def _ensure_survey_roster_conn(conn: Any, survey_id: int, now: str) -> None:
+    row = conn.execute(
+        "SELECT kind, IFNULL(hq_roster_ready, 0) AS ready FROM surveys WHERE id = ?",
+        (survey_id,),
+    ).fetchone()
+    if row is None:
+        return
+    if str(row["kind"] or KIND_OVERTIME) != KIND_GENERIC:
+        return
+    if int(row["ready"] or 0) == 1:
+        return
+    _seed_survey_roster_conn(conn, survey_id, now)
+    conn.execute("UPDATE surveys SET hq_roster_ready = 1 WHERE id = ?", (survey_id,))
+
+
+def _survey_roster_teams_conn(conn: Any, survey_id: int) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT DISTINCT team FROM survey_roster
+        WHERE survey_id = ?
+        ORDER BY team
+        """,
+        (survey_id,),
+    ).fetchall()
+    return [str(row["team"]) for row in rows if str(row["team"] or "").strip()]
+
+
+def ensure_survey_roster(username: str, survey_id: int) -> None:
+    _require_known_user(username)
+    conn = get_connection()
+    try:
+        _ensure_survey_roster_conn(conn, survey_id, _now())
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_survey_roster(
+    username: str, survey_id: int, team: str | None = None
+) -> list[dict[str, Any]]:
+    """본사요청 취합 명단. 특근 재직명부와 별개다."""
+    _require_known_user(username)
+    role = _role(username)
+    survey = get_survey_by_id(survey_id)
+    if survey is None:
+        return []
+    if not is_generic(survey):
+        return []
+    if role == ROLE_DIRECTOR and not survey["is_published"]:
+        return []
+    ensure_survey_roster(username, survey_id)
+    if role == ROLE_TEAM:
+        team = _own_team(username)
+    conn = get_connection()
+    try:
+        if team:
+            rows = conn.execute(
+                """
+                SELECT id, survey_id, name, company, team, employment_type, updated_at
+                FROM survey_roster
+                WHERE survey_id = ? AND team = ?
+                ORDER BY company, employment_type, name
+                """,
+                (survey_id, team),
+            ).fetchall()
+        else:
+            if role == ROLE_TEAM:
+                return []
+            rows = conn.execute(
+                """
+                SELECT id, survey_id, name, company, team, employment_type, updated_at
+                FROM survey_roster
+                WHERE survey_id = ?
+                ORDER BY team, company, employment_type, name
+                """,
+                (survey_id,),
+            ).fetchall()
+        return [_row_dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def survey_roster_teams(username: str, survey_id: int) -> list[str]:
+    _require_known_user(username)
+    ensure_survey_roster(username, survey_id)
+    conn = get_connection()
+    try:
+        return _survey_roster_teams_conn(conn, survey_id)
+    finally:
+        conn.close()
+
+
+def team_on_survey_roster(survey_id: int, team: str) -> bool:
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM survey_roster WHERE survey_id = ? AND team = ? LIMIT 1",
+            (survey_id, team),
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
+def add_survey_roster_person(
+    username: str,
+    survey_id: int,
+    name: str,
+    company: str,
+    team: str,
+    employment_type: str,
+) -> int:
+    _require_admin(username)
+    survey = get_survey_by_id(survey_id)
+    if survey is None or not is_generic(survey):
+        raise ValueError("본사 요청 조사가 아닙니다.")
+    name = str(name or "").strip()
+    company = str(company or "").strip()
+    team = str(team or "").strip()
+    employment_type = str(employment_type or "").strip()
+    if not name:
+        raise ValueError("성명을 입력하세요.")
+    if company not in COMPANIES:
+        raise ValueError("회사는 에이텍모빌리티 또는 에이텍컴퓨터여야 합니다.")
+    if team not in SUBMITTING_TEAMS:
+        raise AccessDenied("알 수 없는 팀입니다.")
+    if employment_type not in EMPLOYMENT_TYPES:
+        raise ValueError("고용형태는 정규직, 계약직, 일용직 중 하나여야 합니다.")
+    now = _now()
+    conn = get_connection()
+    try:
+        _ensure_survey_roster_conn(conn, survey_id, now)
+        exists = conn.execute(
+            """
+            SELECT id FROM survey_roster
+            WHERE survey_id = ? AND name = ? AND company = ? AND team = ?
+            """,
+            (survey_id, name, company, team),
+        ).fetchone()
+        if exists is not None:
+            raise ValueError("같은 회사·팀에 이미 있는 이름입니다.")
+        cursor = conn.execute(
+            """
+            INSERT INTO survey_roster (survey_id, name, company, team, employment_type, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (survey_id, name, company, team, employment_type, now),
+        )
+        conn.execute("UPDATE surveys SET hq_roster_ready = 1 WHERE id = ?", (survey_id,))
+        conn.commit()
+        return int(cursor.lastrowid)
+    finally:
+        conn.close()
+
+
+def remove_survey_roster_person(username: str, survey_id: int, roster_id: int) -> None:
+    _require_admin(username)
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT id FROM survey_roster WHERE id = ? AND survey_id = ?",
+            (roster_id, survey_id),
+        ).fetchone()
+        if row is None:
+            raise ValueError("취합 명단에서 찾을 수 없습니다.")
+        conn.execute("DELETE FROM survey_roster WHERE id = ?", (roster_id,))
+        conn.execute("UPDATE surveys SET hq_roster_ready = 1 WHERE id = ?", (survey_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def refill_survey_roster_from_employees(username: str, survey_id: int) -> int:
+    """특근 명부를 이 조사 취합 명단으로 다시 복사한다. 특근 명부는 그대로 둔다."""
+    _require_admin(username)
+    survey = get_survey_by_id(survey_id)
+    if survey is None or not is_generic(survey):
+        raise ValueError("본사 요청 조사가 아닙니다.")
+    now = _now()
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM survey_roster WHERE survey_id = ?", (survey_id,))
+        count = _seed_survey_roster_conn(conn, survey_id, now)
+        conn.execute("UPDATE surveys SET hq_roster_ready = 1 WHERE id = ?", (survey_id,))
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def keep_survey_roster_company(username: str, survey_id: int, company: str) -> int:
+    _require_admin(username)
+    if company not in COMPANIES:
+        raise ValueError("회사는 에이텍모빌리티 또는 에이텍컴퓨터여야 합니다.")
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM survey_roster WHERE survey_id = ? AND company != ?",
+            (survey_id, company),
+        )
+        conn.execute("UPDATE surveys SET hq_roster_ready = 1 WHERE id = ?", (survey_id,))
+        remaining = conn.execute(
+            "SELECT COUNT(*) AS n FROM survey_roster WHERE survey_id = ?",
+            (survey_id,),
+        ).fetchone()
+        conn.commit()
+        return int(remaining["n"] if remaining is not None else 0)
+    finally:
+        conn.close()
+
+
+def overtime_people_not_on_survey(username: str, survey_id: int) -> list[dict[str, Any]]:
+    _require_admin(username)
+    ensure_survey_roster(username, survey_id)
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT e.id, e.name, e.company, e.team, e.employment_type
+            FROM employees e
+            WHERE NOT EXISTS (
+                SELECT 1 FROM survey_roster s
+                WHERE s.survey_id = ?
+                  AND s.name = e.name
+                  AND s.company = e.company
+                  AND s.team = e.team
+            )
+            ORDER BY e.team, e.company, e.name
+            """,
+            (survey_id,),
+        ).fetchall()
+        return [_row_dict(row) for row in rows]
     finally:
         conn.close()
 
@@ -750,6 +1022,11 @@ def replace_team_responses(
     rows: list[dict[str, Any]],
 ) -> None:
     _assert_can_write_team(username, team)
+    survey = get_survey_by_id(survey_id)
+    if survey is not None and is_generic(survey):
+        ensure_survey_roster(username, survey_id)
+        if not team_on_survey_roster(survey_id, team):
+            raise AccessDenied("이 조사 취합 대상 팀이 아닙니다.")
     can_edit, reason = survey_edit_status(username, survey_id)
     if not can_edit:
         raise AccessDenied(reason)

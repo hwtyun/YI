@@ -160,6 +160,29 @@ def _ensure_survey_tables(conn: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_responses_survey_team ON responses (survey_id, team)"
     )
 
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS survey_roster (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            survey_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            company TEXT NOT NULL,
+            team TEXT NOT NULL,
+            employment_type TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (survey_id) REFERENCES surveys(id)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_survey_roster_person "
+        "ON survey_roster (survey_id, name, company, team)"
+    )
+    if "hq_roster_ready" not in survey_cols:
+        conn.execute(
+            "ALTER TABLE surveys ADD COLUMN hq_roster_ready INTEGER NOT NULL DEFAULT 0"
+        )
+
 
 def sync_user_profiles(conn: sqlite3.Connection | None = None) -> None:
     own_conn = conn is None

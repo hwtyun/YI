@@ -36,8 +36,8 @@ def _employee_table(rows: list[dict]) -> None:
 def _render_admin_roster(username: str) -> None:
     st.subheader("재직인원 명부")
     st.caption(
-        "양식에 성명·회사·팀·고용형태를 적은 뒤 아래에서 엑셀만 올리면 바로 반영됩니다. "
-        "고용형태에 직급(이사·책임·선임·사원 등)을 적어도 정규직으로 저장합니다."
+        "특근인원 명부입니다. 양식에 성명·회사·팀·고용형태를 적은 뒤 엑셀로 올리면 반영됩니다. "
+        "본사요청 취합 명단은 조사 관리에서 조사마다 따로 고릅니다."
     )
 
     current = list_employees(username)

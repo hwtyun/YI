@@ -20,7 +20,7 @@ def render_generic_builder(username: str) -> None:
     st.caption(
         "본사 메일 본문과 첨부를 올리면 AI가 입력 칸을 제안합니다. "
         "기본은 OpenAI(gpt-4o-mini)이고, 그 키가 없으면 Gemini를 씁니다. "
-        "미리보기에서 고친 뒤 조사를 만들고, 조사 관리에서 배포해야 팀이 입력할 수 있습니다."
+        "미리보기에서 고친 뒤 조사를 만들고, 조사 관리에서 취합 명단을 고른 다음 배포해야 팀이 입력할 수 있습니다."
     )
     request = st.text_area("메일 본문", height=180, key="generic_request_text")
     uploaded_files = st.file_uploader(
@@ -131,5 +131,5 @@ def render_generic_builder(username: str) -> None:
             schema=schema,
         )
         st.session_state.pop("draft_schema", None)
-        st.success(f"조사를 만들었습니다. 조사 관리에서 확인한 뒤 배포하세요. (번호 {survey_id})")
-        st.caption("배포 전에는 팀의 「본사요청 취합자료」에 나타나지 않습니다. AI 결과는 자동 배포되지 않습니다.")
+        st.success(f"조사를 만들었습니다. 조사 관리에서 취합 명단을 고른 뒤 배포하세요. (번호 {survey_id})")
+        st.caption("배포 전에는 팀의 「본사요청 취합자료」에 나타나지 않습니다. 취합 명단은 특근 명부와 별개입니다.")
