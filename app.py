@@ -745,6 +745,105 @@ def _render_team_day_excel_io(username: str, team: str, survey: dict, work_date:
         st.error(str(exc))
 
 
+def _company_key_app(value: object) -> str:
+    text = str(value or "").strip()
+    return "" if text in {"", "-", "미지정"} else text
+
+
+def _render_factory_overtime_list(
+    username: str,
+    team,
+    survey: dict,
+    work_date: str,
+    rows: list,
+    read_only: bool,
+) -> None:
+    """공장 전체 명단. 우리 팀 인원만 체크 후 삭제한다."""
+    from src.store import AccessDenied, list_entries, replace_team_entries, survey_edit_status
+    from src.views.calendar_page import _team_entries
+
+    overtime = [item for item in rows if float(item.get("work_hours") or 0) > 0]
+    if not overtime:
+        st.caption("아직 특근 인원이 없습니다.")
+        return
+    table = [
+        {
+            "삭제": False,
+            "팀": item.get("team") or "",
+            "회사": item.get("company") or "-",
+            "성명": item.get("name") or "",
+            "고용형태": item.get("employment_type") or "-",
+            "시간": item.get("work_hours"),
+            "식수": item.get("meal_count") if item.get("meal_count") is not None else "-",
+        }
+        for item in overtime
+    ]
+    own_rows = [item for item in overtime if team and str(item.get("team") or "") == team]
+    if read_only or not team or not own_rows:
+        st.dataframe(
+            [{k: v for k, v in row.items() if k != "삭제"} for row in table],
+            hide_index=True,
+            width="stretch",
+        )
+        if team and not read_only and not own_rows:
+            st.caption("우리 팀 인원이 없어 여기서 삭제할 항목이 없습니다.")
+        return
+
+    survey_id = int(survey["id"])
+    can_edit, reason = survey_edit_status(username, survey_id)
+    edited = st.data_editor(
+        table,
+        hide_index=True,
+        width="stretch",
+        disabled=["팀", "회사", "성명", "고용형태", "시간", "식수"],
+        column_config={"삭제": st.column_config.CheckboxColumn("삭제", default=False)},
+        key=f"cal_del_{survey_id}_{team}_{work_date}",
+    )
+    st.caption("우리 팀 인원만 체크한 뒤 삭제할 수 있습니다. 잘못 올린 특근을 여기서 지웁니다.")
+    if not can_edit:
+        st.warning(reason)
+        return
+    if not st.button("선택한 인원 삭제", key=f"cal_del_btn_{survey_id}_{team}_{work_date}"):
+        return
+    records = edited.to_dict("records") if hasattr(edited, "to_dict") else list(edited)
+    picked = [row for row in records if bool(row.get("삭제"))]
+    own_picked = [row for row in picked if str(row.get("팀") or "") == team]
+    other_picked = [row for row in picked if str(row.get("팀") or "") != team]
+    if other_picked:
+        st.error("다른 팀 인원은 삭제할 수 없습니다. 우리 팀만 체크해 주세요.")
+        return
+    if not own_picked:
+        st.warning("삭제할 우리 팀 인원을 체크하세요.")
+        return
+    remove = {
+        (str(row.get("성명") or "").strip(), _company_key_app(row.get("회사")))
+        for row in own_picked
+    }
+    existing = _team_entries(list_entries(username, survey_id), team)
+    kept = []
+    for item in existing:
+        key = (str(item.get("name") or "").strip(), _company_key_app(item.get("company")))
+        if str(item.get("work_date") or "") == work_date and key in remove:
+            continue
+        kept.append(item)
+    try:
+        replace_team_entries(username, survey_id, team, kept)
+        for key in list(st.session_state.keys()):
+            text = str(key)
+            if text.startswith(
+                (
+                    f"cal_del_{survey_id}_{team}_{work_date}",
+                    f"cal_roster_{survey_id}_{team}_{work_date}",
+                    f"cal_manual_{survey_id}_{team}_{work_date}",
+                )
+            ):
+                del st.session_state[key]
+        st.success(f"{len(own_picked)}명을 삭제했습니다.")
+        st.rerun()
+    except AccessDenied as exc:
+        st.error(str(exc))
+
+
 def _render_overtime_calendar(username: str, team=None, read_only: bool = False, **kwargs) -> None:
     from datetime import date
 
@@ -758,7 +857,6 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
         _cell_html,
         _counts_by_date,
         _month_start,
-        _render_readonly_list,
         _render_team_date_editor,
         _sunday_first_weeks,
     )
@@ -863,7 +961,9 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
             chips = "".join(f"<span class='yi-chip'>{name} {count}명</span>" for name, count in by_company.items())
             st.markdown(chips, unsafe_allow_html=True)
         st.markdown("**공장 전체 특근 명단**")
-        _render_readonly_list(day_rows)
+        _render_factory_overtime_list(
+            username, team, survey, selected_day.isoformat(), day_rows, read_only
+        )
         if read_only:
             st.caption("공장장은 조회만 가능합니다.")
         elif team:
