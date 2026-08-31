@@ -1,78 +1,23 @@
 from __future__ import annotations
 
+import hashlib
+
 import streamlit as st
 
-from src.config import COMPANIES, EMPLOYMENT_TYPES, SUBMITTING_TEAMS
+from src.config import COMPANIES, EMPLOYMENT_TYPES, ROLE_ADMIN, SUBMITTING_TEAMS, primary_role
 from src.excel_io import build_employee_template, parse_employee_roster
 from src.store import AccessDenied, list_employees, replace_employee_roster
+from src.views.roster_edit import render_team_roster_editor
 
 
 def render_roster_manager(username: str) -> None:
-    st.subheader("임직원 명부")
-    st.caption(
-        "용인공장에서 같이 근무하는 에이텍모빌리티·에이텍컴퓨터 인원을 올립니다. "
-        "팀은 웹에서 자기 팀 이름만 보고 특근 여부만 기입합니다."
-    )
-    st.write(
-        "일용직은 자주 바뀌므로 매번 올리지 않아도 됩니다. "
-        "고정 일용직만 명부에 넣으면 해당 팀 화면에 함께 나오고, 그 외는 팀이 수기로 추가합니다."
-    )
-
-    current = list_employees(username)
-    down_col, up_col = st.columns(2)
-    with down_col:
-        st.download_button(
-            "명부 양식 받기" if not current else "현재 명부 엑셀 받기",
-            data=build_employee_template(current or None),
-            file_name="임직원명부.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="dl_roster",
-        )
-    with up_col:
-        uploaded = st.file_uploader("명부 엑셀 업로드 (전체 교체)", type=["xlsx"], key="up_roster")
-
-    if uploaded is not None:
-        parsed = parse_employee_roster(uploaded.getvalue())
-        if parsed.errors:
-            st.error("아래 행은 반영되지 않습니다.")
-            for item in parsed.errors:
-                st.write(f"- {item}")
-        if parsed.rows:
-            st.success(f"유효한 인원 {len(parsed.rows)}명")
-            st.dataframe(
-                [
-                    {
-                        "성명": item["name"],
-                        "회사": item["company"],
-                        "팀": item["team"],
-                        "고용형태": item["employment_type"],
-                    }
-                    for item in parsed.rows
-                ],
-                hide_index=True,
-                width="stretch",
-            )
-            replace_ok = st.checkbox("기존 명부를 이 파일로 바꿉니다", key="confirm_roster_replace")
-            if st.button("명부 반영", type="primary", key="apply_roster"):
-                if not replace_ok:
-                    st.error("확인 체크를 한 뒤에 반영해 주세요.")
-                else:
-                    try:
-                        count = replace_employee_roster(username, parsed.rows)
-                        st.success(f"명부 {count}명을 반영했습니다.")
-                        st.rerun()
-                    except AccessDenied as exc:
-                        st.error(str(exc))
-        elif not parsed.errors:
-            st.warning("파일에서 인원을 읽지 못했습니다.")
-
-    st.markdown("**현재 명부**")
-    if not current:
-        st.info("아직 명부가 없습니다. 양식을 받아 성명·회사·팀·고용형태를 채운 뒤 업로드하세요.")
-        st.caption(f"회사: {' · '.join(COMPANIES)} / 팀: {' · '.join(SUBMITTING_TEAMS)} / 고용형태: {' · '.join(EMPLOYMENT_TYPES)}")
+    if primary_role(username) != ROLE_ADMIN:
+        render_team_roster_editor(username)
         return
+    _render_admin_roster(username)
 
-    st.caption(f"총 {len(current)}명 · 회사 {len({item['company'] for item in current})}곳 · 팀 {len({item['team'] for item in current})}개")
+
+def _employee_table(rows: list[dict]) -> None:
     st.dataframe(
         [
             {
@@ -81,8 +26,81 @@ def render_roster_manager(username: str) -> None:
                 "팀": item["team"],
                 "고용형태": item["employment_type"],
             }
-            for item in current
+            for item in rows
         ],
         hide_index=True,
         width="stretch",
     )
+
+
+def _render_admin_roster(username: str) -> None:
+    st.subheader("재직인원 명부")
+    st.caption(
+        "양식에 성명·회사·팀·고용형태를 적은 뒤 아래에서 엑셀만 올리면 바로 반영됩니다. "
+        "고용형태에 직급(이사·책임·선임·사원 등)을 적어도 정규직으로 저장합니다."
+    )
+
+    current = list_employees(username)
+    down_col, current_col = st.columns(2)
+    with down_col:
+        st.download_button(
+            "재직인원 양식 다운받기",
+            data=build_employee_template([]),
+            file_name="재직인원_양식.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_roster_template",
+        )
+    with current_col:
+        st.download_button(
+            "현재 재직인원 엑셀 받기",
+            data=build_employee_template(current),
+            file_name="재직인원_전체.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_roster_current",
+            disabled=not current,
+        )
+
+    st.session_state["_yi_excel_roster_shown"] = True
+
+    uploaded = st.file_uploader("재직인원 엑셀 업로드", type=["xlsx"], key="up_roster")
+    if uploaded is not None:
+        parsed = parse_employee_roster(uploaded.getvalue())
+        if parsed.errors:
+            st.error("일부 행은 건너뛰었습니다.\n" + "\n".join(f"- {item}" for item in parsed.errors))
+        if parsed.rows:
+            sig = hashlib.sha256(uploaded.getvalue()).hexdigest()
+            if st.session_state.get("roster_file_sig") != sig:
+                try:
+                    count = replace_employee_roster(username, parsed.rows)
+                    st.session_state["roster_file_sig"] = sig
+                    st.success(f"재직인원 {count}명을 반영했습니다.")
+                    st.rerun()
+                except AccessDenied as exc:
+                    st.error(str(exc))
+            else:
+                st.success(f"반영된 인원 {len(parsed.rows)}명")
+                _employee_table(parsed.rows)
+        elif not parsed.errors:
+            st.warning("파일에서 인원을 읽지 못했습니다.")
+
+    st.markdown("**현재 전체 명부**")
+    if not current:
+        st.info("아직 명부가 없습니다. 「재직인원 양식 다운받기」로 양식을 받아 올린 뒤 확인하세요.")
+        st.caption(
+            f"회사: {' · '.join(COMPANIES)} / 팀: {' · '.join(SUBMITTING_TEAMS)} / 고용형태: {' · '.join(EMPLOYMENT_TYPES)}"
+        )
+    else:
+        teams = ["전체"] + SUBMITTING_TEAMS
+        selected = st.selectbox("표시 팀", teams, key="admin_roster_filter")
+        shown = current if selected == "전체" else [item for item in current if item["team"] == selected]
+        st.caption(
+            f"표시 {len(shown)}명 · 전체 {len(current)}명 · "
+            f"회사 {len({item['company'] for item in current})}곳 · 팀 {len({item['team'] for item in current})}개"
+        )
+        if shown:
+            _employee_table(shown)
+        else:
+            st.info("이 팀에 등록된 인원이 없습니다.")
+
+    st.divider()
+    render_team_roster_editor(username, allow_all_teams=True)

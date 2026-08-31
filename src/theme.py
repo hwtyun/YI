@@ -6,6 +6,11 @@ from pathlib import Path
 
 import streamlit as st
 
+try:
+    from branding import SITE_TITLE
+except ImportError:
+    SITE_TITLE = "용인공장 특근·본사요청 취합"
+
 ROOT = Path(__file__).resolve().parent.parent
 LOGO_CANDIDATES = (
     ROOT / "static" / "atec_ci.png",
@@ -24,7 +29,103 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     font-family: "Noto Sans KR", sans-serif;
     direction: ltr !important;
 }
-.stApp { background: #f3f6fa; }
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"],
+.stMain, section.main, .block-container {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000;
+    color-scheme: light !important;
+    --text-color: #000000 !important;
+    --textColor: #000000 !important;
+    --background-color: #ffffff !important;
+    --st-background-color: #ffffff !important;
+}
+[data-testid="stHeading"],
+[data-testid="stHeading"] *,
+[data-testid="stCaption"],
+[data-testid="stCaption"] *,
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] *,
+.stHeading, .stHeading *,
+.stCaption, .stCaption *,
+h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+[data-testid="stDownloadButton"] button {
+    background-color: #1f4e79 !important;
+    border-color: #1f4e79 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+}
+[data-testid="stDownloadButton"] button p,
+[data-testid="stDownloadButton"] button span,
+[data-testid="stDownloadButton"] button div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+.yi-site-title, .yi-login-caption {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+.yi-site-title {
+    font-weight: 700 !important;
+    font-size: 2rem !important;
+    margin: 0.15rem 0 0.4rem 0 !important;
+}
+.yi-login-caption {
+    font-size: 0.95rem !important;
+    margin: 0 0 0.7rem 0 !important;
+}
+div[class*="st-key-yi_login"] h1,
+div[class*="st-key-yi_login"] h2,
+div[class*="st-key-yi_login"] p,
+div[class*="st-key-yi_login"] label,
+div[class*="st-key-yi_login"] span,
+div[class*="st-key-yi_login"] [data-testid="stHeading"] *,
+div[class*="st-key-yi_login"] [data-testid="stCaption"] *,
+div[class*="st-key-yi_login"] [data-testid="stCaptionContainer"] *,
+div[class*="st-key-yi_login"] [data-testid="stWidgetLabel"],
+div[class*="st-key-yi_login"] [data-testid="stWidgetLabel"] *,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] p,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] span,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] label,
+div[class*="st-key-yi_login"] [data-testid="stMarkdown"] p {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] button,
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] p,
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] span {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] > div > div {
+    background: #87CEEB !important;
+    background-color: #87CEEB !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] button,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] svg {
+    color: #000000 !important;
+    fill: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input:-webkit-autofill,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #87CEEB inset !important;
+    -webkit-text-fill-color: #000000 !important;
+}
 html[dir], body[dir], [dir="rtl"], [dir="auto"] {
     direction: ltr !important;
 }
@@ -48,7 +149,24 @@ input[type="password"] {
     text-align: left !important;
 }
 [data-testid="stSidebar"] { display: none; }
-[data-testid="stHeader"] { background: transparent; }
+[data-testid="stHeader"] { display: none !important; }
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stAppDeployButton"],
+.stDeployButton,
+.stAppDeployButton,
+#MainMenu,
+footer,
+header,
+[class*="viewerBadge"],
+iframe[title="streamlit_menu"] {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    pointer-events: none !important;
+}
 .block-container { padding-top: 0.45rem; padding-bottom: 2.4rem; max-width: 1280px; }
 div[class*="st-key-yi_topbar"] {
     background: #fff;
@@ -182,6 +300,18 @@ div[class*="st-key-yi_user"] button:hover {
     border-color: #1a5fb4 !important;
     background: #fff !important;
 }
+.yi-cal-month,
+.yi-cal-month * {
+    text-align: center !important;
+    font-size: 1.7rem !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    line-height: 2.4rem !important;
+    margin: 0 !important;
+}
 .yi-card {
     background: #fff;
     border-radius: 16px;
@@ -215,21 +345,48 @@ div[data-testid="stButton"] > button[kind="secondary"] {
 .yi-sat { color: #1a5fb4; font-weight: 700; }
 .yi-sun { color: #d94848; font-weight: 700; }
 .yi-day { color: #243547; font-weight: 600; }
-.yi-cell { min-height: 4.6rem; padding: 2px 0 4px 0; }
-.yi-cell-num { text-align: center; font-size: 0.95rem; margin-bottom: 4px; }
-.yi-cell-on { background: #eaf3fc; border-radius: 10px; padding: 4px 2px 6px 2px; }
+.yi-cell {
+    height: 7.6rem;
+    min-height: 7.6rem;
+    max-height: 7.6rem;
+    padding: 4px 2px 2px 2px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.yi-cell-num { text-align: center; font-size: 0.95rem; margin-bottom: 2px; flex: none; }
+.yi-cell-meta {
+    flex: 1;
+    min-height: 4.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+}
+.yi-cell-on { background: #eaf3fc; border-radius: 10px; padding: 4px 2px 2px 2px; }
 .yi-tag {
     display: block;
     border-radius: 8px;
-    padding: 2px 6px;
-    margin: 2px 2px 0 2px;
-    font-size: 0.68rem;
+    padding: 2px 4px;
+    margin: 0 2px;
+    font-size: 0.64rem;
     font-weight: 600;
     text-align: center;
-    line-height: 1.35;
+    line-height: 1.3;
+    overflow: hidden;
+}
+.yi-tag-spacer { visibility: hidden; background: transparent !important; }
+[data-testid="stMarkdownContainer"]:has(.yi-cell) {
+    min-height: 7.6rem;
+}
+[data-testid="stMarkdownContainer"]:has(.yi-cell) p {
+    margin: 0 !important;
 }
 .yi-tag-count { background: #e8f1fb; color: #1a5fb4; }
+.yi-tag-meal { background: #fff4e5; color: #b35c00; }
 .yi-tag-cafe { background: #e7f6ee; color: #1b7a45; }
+.yi-tag-off { background: #f4f6f8; color: #7a8794; }
 .yi-tag-open { background: #f4f7fb; color: #6a7b8c; }
 .yi-summary {
     display: flex;
@@ -287,6 +444,33 @@ div[class*="st-key-yi_user"] button:hover {
 }
 </style>
 """
+
+
+def inject_theme() -> None:
+    try:
+        st.html(THEME_CSS)
+    except Exception:
+        st.markdown(THEME_CSS, unsafe_allow_html=True)
+
+
+def render_site_title() -> None:
+    st.markdown(
+        f'<h1 class="yi-site-title" style="color:#000000 !important;'
+        f'-webkit-text-fill-color:#000000 !important;opacity:1 !important;'
+        f'font-weight:700;font-size:2rem;margin:0.15rem 0 0.4rem 0;">'
+        f"{SITE_TITLE}</h1>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_login_caption() -> None:
+    st.markdown(
+        '<p class="yi-login-caption" style="color:#000000 !important;'
+        '-webkit-text-fill-color:#000000 !important;opacity:1 !important;'
+        'font-size:0.95rem;margin:0 0 0.7rem 0;">'
+        "아이디로 로그인한 뒤 본인 화면만 사용합니다. 휴대폰에서도 입력할 수 있습니다.</p>",
+        unsafe_allow_html=True,
+    )
 
 
 def logo_path() -> Path | None:

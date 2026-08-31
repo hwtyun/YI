@@ -6,18 +6,26 @@ from src.config import COMPANIES, EMPLOYMENT_TYPES, ROLE_ADMIN, SUBMITTING_TEAMS
 from src.store import AccessDenied, add_employee, delete_employee, list_employees
 
 
-def render_team_roster_editor(username: str) -> None:
+def render_team_roster_editor(username: str, allow_all_teams: bool = False) -> None:
     user = get_user(username)
     role = primary_role(username)
     own_team = user.get("team")
-    st.subheader("팀 명부")
-    st.caption("신규 입사자는 여기서 바로 넣으면 됩니다. 최고 관리자가 전체 목록을 다시 올리지 않아도 됩니다.")
+    can_pick_team = allow_all_teams and role == ROLE_ADMIN
 
-    default_team = own_team or SUBMITTING_TEAMS[0]
-    if role == ROLE_ADMIN:
-        team = st.selectbox("팀", SUBMITTING_TEAMS, index=SUBMITTING_TEAMS.index(default_team) if default_team in SUBMITTING_TEAMS else 0)
+    if can_pick_team:
+        st.subheader("개별 추가 · 삭제")
+        st.caption("엑셀 없이 한 명씩 넣거나 지울 때 사용합니다. 팀은 목록에서 고릅니다.")
+        default_team = own_team or SUBMITTING_TEAMS[0]
+        team = st.selectbox(
+            "팀",
+            SUBMITTING_TEAMS,
+            index=SUBMITTING_TEAMS.index(default_team) if default_team in SUBMITTING_TEAMS else 0,
+            key="roster_edit_team",
+        )
     else:
         team = str(own_team or "")
+        st.subheader("인원 명부")
+        st.caption(f"**{team}** 인원만 보고, 추가·삭제할 수 있습니다. 다른 팀 명부는 바꿀 수 없습니다.")
         st.write(f"팀: **{team}**")
 
     with st.form("add_employee_form"):
@@ -35,8 +43,10 @@ def render_team_roster_editor(username: str) -> None:
 
     rows = list_employees(username, team)
     if not rows:
-        st.info("아직 명부가 없습니다. 위에서 인원을 추가하세요.")
+        st.info("아직 이 팀 명부가 없습니다. 위에서 인원을 추가하세요.")
         return
+    if not can_pick_team:
+        st.markdown(f"**{team} 명단** · {len(rows)}명")
     st.dataframe(
         [
             {
@@ -50,7 +60,10 @@ def render_team_roster_editor(username: str) -> None:
         hide_index=True,
         width="stretch",
     )
-    labels = {f"{item['name']} ({item['company']})": int(item["id"]) for item in rows}
+    labels = {
+        f"{item['name']} · {item['company']} · {item['employment_type']}": int(item["id"])
+        for item in rows
+    }
     with st.form("delete_employee_form"):
         selected = st.selectbox("삭제할 인원", list(labels.keys()))
         removed = st.form_submit_button("명부에서 삭제")

@@ -12,8 +12,65 @@ NAV_LABELS = {
 }
 
 
+_PAGE_TEXT_CSS = """
+<style>
+[data-testid="stHeading"],
+[data-testid="stHeading"] *,
+[data-testid="stCaption"],
+[data-testid="stCaption"] *,
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] *,
+.stHeading, .stHeading *,
+.stCaption, .stCaption *,
+h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+[data-testid="stDownloadButton"] button {
+    background-color: #1f4e79 !important;
+    border-color: #1f4e79 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+}
+[data-testid="stDownloadButton"] button p,
+[data-testid="stDownloadButton"] button span,
+[data-testid="stDownloadButton"] button div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+.yi-cal-month,
+.yi-cal-month * {
+    text-align: center !important;
+    font-size: 1.7rem !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    line-height: 2.4rem !important;
+    margin: 0 !important;
+}
+</style>
+"""
+
+
 def inject_theme() -> None:
-    st.markdown(THEME_CSS, unsafe_allow_html=True)
+    try:
+        from branding import inject_login_styles
+
+        inject_login_styles()
+    except ImportError:
+        pass
+    try:
+        st.html(_PAGE_TEXT_CSS)
+        st.html(THEME_CSS)
+    except Exception:
+        st.markdown(_PAGE_TEXT_CSS, unsafe_allow_html=True)
+        st.markdown(THEME_CSS, unsafe_allow_html=True)
 
 
 def _nav_items(role: str) -> list[tuple[str, str]]:
@@ -119,10 +176,13 @@ def render_signed_in(username: str, authenticator) -> None:
         return
     if nav == NAV_ADMIN and role != ROLE_DIRECTOR:
         from src.views.admin import render_admin_tools
+        from src.views.roster import render_roster_manager
         from src.views.roster_edit import render_team_roster_editor
 
         st.header("관리자메뉴")
-        render_team_roster_editor(username)
         if role == ROLE_ADMIN:
+            render_roster_manager(username)
             st.divider()
             render_admin_tools(username)
+        else:
+            render_team_roster_editor(username)

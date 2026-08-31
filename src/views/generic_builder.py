@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 from src.extract import extract_upload_text
-from src.gemini import gemini_api_key, propose_schema
-from src.schema import KIND_GENERIC, empty_schema, normalize_schema
+from src.gemini import ai_api_key, propose_schema
+from src.schema import KIND_GENERIC, empty_schema, normalize_schema, slim_schema
 from src.schedule import default_deadline, default_overtime_weekend, default_survey_title
 from src.store import create_survey
 
@@ -18,7 +18,8 @@ TYPE_VALUES = {value: key for key, value in TYPE_LABELS.items()}
 def render_generic_builder(username: str) -> None:
     st.subheader("본사 요청 양식")
     st.caption(
-        "본사 메일 본문과 첨부를 올리면 Gemini가 입력 칸을 제안합니다. "
+        "본사 메일 본문과 첨부를 올리면 AI가 입력 칸을 제안합니다. "
+        "기본은 OpenAI(gpt-4o-mini)이고, 그 키가 없으면 Gemini를 씁니다. "
         "미리보기에서 고친 뒤 조사를 만들고, 조사 관리에서 배포해야 팀이 입력할 수 있습니다."
     )
     request = st.text_area("메일 본문", height=180, key="generic_request_text")
@@ -40,8 +41,11 @@ def render_generic_builder(username: str) -> None:
 
     propose_col, blank_col = st.columns(2)
     if propose_col.button("AI로 양식 제안", key="generic_propose"):
-        if not gemini_api_key():
-            st.error("GEMINI_API_KEY가 secrets.toml에 없습니다. 키를 넣거나 아래 빈 양식부터 작성하세요.")
+        if not ai_api_key():
+            st.error(
+                "OPENAI_API_KEY 또는 GEMINI_API_KEY가 secrets.toml에 없습니다. "
+                "키를 넣거나 아래 빈 양식부터 작성하세요."
+            )
         else:
             try:
                 st.session_state["draft_schema"] = propose_schema(combined)
@@ -105,8 +109,10 @@ def render_generic_builder(username: str) -> None:
                 }
             )
         try:
-            schema = normalize_schema(
-                {"title": title.strip(), "instructions": instructions.strip(), "columns": raw_columns}
+            schema = slim_schema(
+                normalize_schema(
+                    {"title": title.strip(), "instructions": instructions.strip(), "columns": raw_columns}
+                )
             )
         except ValueError as exc:
             st.error(str(exc))

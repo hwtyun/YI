@@ -3,7 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.aggregate import collect_overtime, date_totals, summarize_generic
-from src.schema import is_generic
+from src.schema import entry_schema, is_generic
 from src.store import list_overtime_entries, list_responses, list_surveys
 
 
@@ -73,7 +73,7 @@ def _render_overtime(username: str, survey: dict) -> None:
 
 
 def _render_generic(username: str, survey: dict) -> None:
-    schema = survey.get("schema") or {"columns": []}
+    schema = entry_schema(survey.get("schema") or {"columns": []})
     result = summarize_generic(schema, list_responses(username, int(survey["id"])), [])
     if result.rows:
         columns = list(schema.get("columns") or [])

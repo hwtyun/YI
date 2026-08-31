@@ -8,8 +8,9 @@ from src.auth import PASSWORD_RULE_HELP, reset_user_password_by_admin
 from src.config import SUBMITTING_TEAMS, get_user
 from src.excel_io import build_generic_workbook, build_overtime_workbook
 from src.schedule import default_deadline, default_overtime_weekend, default_survey_title
-from src.schema import is_generic
+from src.schema import empty_schema, entry_schema, is_generic
 from src.store import (
+    AccessDenied,
     create_survey,
     list_accounts,
     list_entries,
@@ -17,17 +18,177 @@ from src.store import (
     list_submissions,
     list_surveys,
     publish_survey,
+    update_survey,
 )
 from src.views.generic_builder import render_generic_builder
 from src.views.generic_editor import render_generic_editor
 from src.views.review import render_review_home
-from src.views.roster import render_roster_manager
 
 ROLE_LABELS = {
     "admin": "최고 관리자",
     "director": "공장장",
     "team": "팀 담당자",
 }
+TYPE_LABELS = {"text": "텍스트", "number": "숫자", "date": "날짜"}
+TYPE_VALUES = {value: key for key, value in TYPE_LABELS.items()}
+
+
+def _as_date(value) -> datetime:
+    from datetime import date as date_cls
+
+    text = str(value or "")[:10]
+    try:
+        return datetime.strptime(text, "%Y-%m-%d")
+    except ValueError:
+        return datetime.combine(date_cls.today(), time.min)
+
+
+def _as_time(value) -> time:
+    text = str(value or "")
+    clock = text.split("T", 1)[1][:8] if "T" in text else "11:00:00"
+    parts = (clock + ":00:00").split(":")
+    try:
+        return time(int(parts[0]), int(parts[1]))
+    except (TypeError, ValueError):
+        return time(11, 0)
+
+
+def _bind_widget(key: str, value) -> None:
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+def _render_survey_edit(username: str, survey: dict) -> None:
+    survey_id = int(survey["id"])
+    generic = is_generic(survey)
+    schema = survey.get("schema") or empty_schema(str(survey.get("title") or ""))
+    title_key = f"sv_title_{survey_id}"
+    start_key = f"sv_start_{survey_id}"
+    end_key = f"sv_end_{survey_id}"
+    due_date_key = f"sv_due_d_{survey_id}"
+    due_time_key = f"sv_due_t_{survey_id}"
+    help_key = f"sv_help_{survey_id}"
+    _bind_widget(title_key, str(survey.get("title") or ""))
+    _bind_widget(start_key, _as_date(survey.get("period_start")).date())
+    _bind_widget(end_key, _as_date(survey.get("period_end")).date())
+    _bind_widget(due_date_key, _as_date(survey.get("deadline_at")).date())
+    _bind_widget(due_time_key, _as_time(survey.get("deadline_at")))
+    _bind_widget(help_key, str(schema.get("instructions") or ""))
+
+    st.markdown("**조사 수정**")
+    st.caption("제목·시작일·종료일을 바꾼 뒤 「수정 저장」을 누르세요. 양식 열은 바로 추가·삭제됩니다.")
+    title = st.text_input("제목 수정", key=title_key)
+    start_col, end_col = st.columns(2)
+    with start_col:
+        period_start = st.date_input("시작일 수정", key=start_key, format="YYYY-MM-DD")
+    with end_col:
+        period_end = st.date_input("종료일 수정", key=end_key, format="YYYY-MM-DD")
+    due_col, time_col = st.columns(2)
+    with due_col:
+        due_date = st.date_input("마감일 수정", key=due_date_key, format="YYYY-MM-DD")
+    with time_col:
+        due_time = st.time_input("마감 시각 수정", key=due_time_key)
+
+    schema_payload = None
+    if generic:
+        instructions = st.text_area("내용 수정", key=help_key)
+        st.markdown("**양식 열**")
+        columns = list(schema.get("columns") or [])
+        if columns:
+            st.dataframe(
+                [
+                    {
+                        "열": item.get("label") or "",
+                        "형식": TYPE_LABELS.get(str(item.get("type") or "text"), "텍스트"),
+                    }
+                    for item in columns
+                ],
+                hide_index=True,
+                width="stretch",
+            )
+        add_col, del_col = st.columns(2)
+        with add_col:
+            new_label = st.text_input("추가할 열 이름", key=f"sv_add_name_{survey_id}")
+            if st.button("열 추가", key=f"sv_add_btn_{survey_id}"):
+                try:
+                    from src.schema import add_schema_column
+
+                    next_schema = add_schema_column(schema, new_label)
+                    next_schema["title"] = str(st.session_state.get(title_key) or title).strip()
+                    next_schema["instructions"] = str(st.session_state.get(help_key) or "").strip()
+                    update_survey(
+                        username,
+                        survey_id,
+                        str(st.session_state.get(title_key) or survey.get("title") or "").strip(),
+                        st.session_state[start_key].isoformat(),
+                        st.session_state[end_key].isoformat(),
+                        datetime.combine(st.session_state[due_date_key], st.session_state[due_time_key]).strftime(
+                            "%Y-%m-%dT%H:%M:%S"
+                        ),
+                        schema=next_schema,
+                    )
+                    st.success(f"「{new_label.strip()}」 열을 추가했습니다.")
+                    st.rerun()
+                except (ValueError, AccessDenied) as exc:
+                    st.error(str(exc))
+        with del_col:
+            from src.schema import is_protected_column, remove_schema_column
+
+            removable = [str(item.get("label") or "") for item in columns if not is_protected_column(str(item.get("label") or ""))]
+            picked = st.selectbox(
+                "삭제할 열",
+                removable if removable else ["(삭제할 열이 없습니다)"],
+                key=f"sv_del_name_{survey_id}",
+            )
+            if st.button("열 삭제", key=f"sv_del_btn_{survey_id}"):
+                try:
+                    if not removable:
+                        raise ValueError("삭제할 열이 없습니다.")
+                    next_schema = remove_schema_column(schema, str(picked))
+                    next_schema["title"] = str(st.session_state.get(title_key) or title).strip()
+                    next_schema["instructions"] = str(st.session_state.get(help_key) or "").strip()
+                    update_survey(
+                        username,
+                        survey_id,
+                        str(st.session_state.get(title_key) or survey.get("title") or "").strip(),
+                        st.session_state[start_key].isoformat(),
+                        st.session_state[end_key].isoformat(),
+                        datetime.combine(st.session_state[due_date_key], st.session_state[due_time_key]).strftime(
+                            "%Y-%m-%dT%H:%M:%S"
+                        ),
+                        schema=next_schema,
+                    )
+                    st.success(f"「{picked}」 열을 삭제했습니다.")
+                    st.rerun()
+                except (ValueError, AccessDenied) as exc:
+                    st.error(str(exc))
+        schema_payload = {
+            "title": str(st.session_state.get(title_key) or "").strip(),
+            "instructions": str(st.session_state.get(help_key) or "").strip(),
+            "columns": columns,
+        }
+    else:
+        st.caption("특근 조사는 제목과 기간만 고칩니다. 입력 칸은 달력 화면을 씁니다.")
+
+    if st.button("수정 저장", type="primary", key=f"sv_save_{survey_id}"):
+        try:
+            if period_end < period_start:
+                st.error("종료일은 시작일보다 빠를 수 없습니다.")
+                return
+            deadline_at = datetime.combine(due_date, due_time).strftime("%Y-%m-%dT%H:%M:%S")
+            update_survey(
+                username,
+                survey_id,
+                str(title or "").strip() or str(survey.get("title") or ""),
+                period_start.isoformat(),
+                period_end.isoformat(),
+                deadline_at,
+                schema=schema_payload,
+            )
+            st.success("제목·기간·내용을 저장했습니다.")
+            st.rerun()
+        except (ValueError, AccessDenied) as exc:
+            st.error(str(exc))
 
 
 def render_admin_home(username: str) -> None:
@@ -35,9 +196,9 @@ def render_admin_home(username: str) -> None:
 
 
 def render_admin_tools(username: str) -> None:
-    st.caption("본사 요청 배포·취합, 전체 명부 엑셀은 여기에서 합니다. 특근 입력은 달력에서 언제든지 가능합니다.")
-    hq_tab, survey_tab, review_tab, roster_tab, account_tab = st.tabs(
-        ["본사 요청 양식", "조사 관리", "제출 현황 · 취합", "명부 엑셀", "계정"]
+    st.caption("본사 요청 배포·취합은 아래에서 합니다. 재직인원 엑셀은 위 명부에서 받거나 올립니다.")
+    hq_tab, survey_tab, review_tab, account_tab = st.tabs(
+        ["본사 요청 양식", "조사 관리", "제출 현황 · 취합", "계정"]
     )
     with hq_tab:
         render_generic_builder(username)
@@ -45,8 +206,6 @@ def render_admin_tools(username: str) -> None:
         _render_survey_manager(username)
     with review_tab:
         render_review_home(username)
-    with roster_tab:
-        render_roster_manager(username)
     with account_tab:
         _render_ops_guide()
         accounts = list_accounts()
@@ -59,15 +218,15 @@ def _render_survey_manager(username: str) -> None:
     saturday, sunday = default_overtime_weekend()
     st.subheader("새 조사 생성")
     with st.form("create_survey_form"):
-        title = st.text_input("조사 제목", value=default_survey_title(saturday))
+        title = st.text_input("조사 제목", value=default_survey_title(saturday), key="create_survey_title")
         start_col, end_col = st.columns(2)
         with start_col:
-            period_start = st.date_input("조사 시작일", value=saturday)
+            period_start = st.date_input("조사 시작일", value=saturday, key="create_survey_start")
         with end_col:
-            period_end = st.date_input("조사 종료일", value=sunday)
+            period_end = st.date_input("조사 종료일", value=sunday, key="create_survey_end")
         default_due = default_deadline(period_start if period_start.weekday() == 5 else saturday)
-        due_date = st.date_input("마감일", value=default_due.date())
-        due_time = st.time_input("마감 시각", value=time(11, 0))
+        due_date = st.date_input("마감일", value=default_due.date(), key="create_survey_due_date")
+        due_time = st.time_input("마감 시각", value=time(11, 0), key="create_survey_due_time")
         created = st.form_submit_button("조사 생성")
 
     if created:
@@ -95,10 +254,8 @@ def _render_survey_manager(username: str) -> None:
     for survey in surveys:
         status = "배포됨" if survey["is_published"] else "대기(미배포)"
         kind_label = "범용" if is_generic(survey) else "특근"
-        with st.expander(f"[{status}] [{kind_label}] {survey['title']}", expanded=not survey["is_published"]):
-            st.write(
-                f"기간 {survey['period_start']} ~ {survey['period_end']} · 마감 {survey['deadline_at']}"
-            )
+        with st.expander(f"[{status}] [{kind_label}] {survey['title']}", expanded=True):
+            _render_survey_edit(username, survey)
             if survey["is_published"]:
                 st.success("팀이 입력할 수 있습니다.")
                 subs = list_submissions(username, int(survey["id"]))
@@ -110,7 +267,7 @@ def _render_survey_manager(username: str) -> None:
                         "전체 팀 원본 엑셀 받기",
                         data=build_generic_workbook(
                             str(survey["title"]),
-                            survey.get("schema") or {"columns": []},
+                            entry_schema(survey.get("schema") or {"columns": []}),
                             [
                                 {"source_team": item.get("team"), "team": item.get("team"), **(item.get("payload") or {})}
                                 for item in all_rows

@@ -5,7 +5,7 @@ import streamlit as st
 from src.aggregate import Aggregation, GenericAggregation, summarize, summarize_generic
 from src.excel_io import build_aggregate_workbook, build_generic_workbook
 from src.schedule import is_past_deadline
-from src.schema import is_generic
+from src.schema import entry_schema, is_generic
 from src.store import list_entries, list_responses, list_submissions, list_surveys
 
 
@@ -27,7 +27,7 @@ def render_review_home(username: str) -> None:
 
     if is_generic(survey):
         result = summarize_generic(
-            survey.get("schema") or {"columns": []},
+            entry_schema(survey.get("schema") or {"columns": []}),
             list_responses(username, survey_id),
             submissions,
             past_deadline=past,
@@ -193,7 +193,7 @@ def _render_aggregation(survey: dict, result: Aggregation, past: bool) -> None:
 
 def _render_generic_aggregation(survey: dict, result: GenericAggregation, past: bool) -> None:
     survey_id = int(survey["id"])
-    schema = survey.get("schema") or {"columns": []}
+    schema = entry_schema(survey.get("schema") or {"columns": []})
     columns = list(schema.get("columns") or [])
     errors = [item for item in result.anomalies if item.level == "error"]
     warnings = [item for item in result.anomalies if item.level != "error"]

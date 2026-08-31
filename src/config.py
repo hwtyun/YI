@@ -87,11 +87,14 @@ SUBMITTING_TEAMS = [
 COMPANIES = ["에이텍모빌리티", "에이텍컴퓨터"]
 EMPLOYMENT_TYPES = ["정규직", "계약직", "일용직"]
 CAFETERIA_MIN_HEADCOUNT = 20
+CAFETERIA_MIN_MEALS = CAFETERIA_MIN_HEADCOUNT
 
 
-def cafeteria_operating(headcount: int) -> bool:
-    """특근 인원이 20명 이상이면 식당을 운영한다."""
-    return int(headcount or 0) >= CAFETERIA_MIN_HEADCOUNT
+def cafeteria_operating(meal_count: int) -> bool:
+    """식수인원이 20명 이상이면 식당을 운영한다."""
+    return int(meal_count or 0) >= CAFETERIA_MIN_MEALS
+
+
 RANK_WORDS = {
     "수석",
     "책임",
@@ -106,6 +109,11 @@ RANK_WORDS = {
     "파트장",
     "수습",
     "인턴",
+    "이사",
+    "전무",
+    "상무",
+    "공장장",
+    "대표",
 }
 
 
@@ -148,7 +156,12 @@ def normalize_employment(value: str) -> str | None:
         "일용직": "일용직",
         "일용": "일용직",
     }
-    return mapping.get(folded)
+    if folded in mapping:
+        return mapping[folded]
+    # 명부에 직급(책임·선임·사원 등)을 고용형태 칸에 적은 경우 정규직으로 본다.
+    if text in RANK_WORDS or folded in {_fold(item) for item in RANK_WORDS}:
+        return "정규직"
+    return "정규직"
 
 
 def normalize_team(value: str) -> str | None:
@@ -174,6 +187,8 @@ def normalize_team(value: str) -> str | None:
         "자재파트": "자재파트",
         "자재": "자재파트",
         "자재팀": "자재파트",
+        "용인공장": "생산관리팀",
+        "공장": "생산관리팀",
     }
     return mapping.get(folded)
 

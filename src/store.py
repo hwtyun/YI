@@ -19,7 +19,7 @@ from src.config import (
 from src.db import get_connection
 from src.hours import parse_work_hours
 from src.schedule import is_past_deadline
-from src.schema import KIND_OVERTIME, normalize_schema
+from src.schema import KIND_OVERTIME, is_generic, normalize_schema, slim_schema
 
 
 class AccessDenied(PermissionError):
@@ -160,6 +160,47 @@ def publish_survey(username: str, survey_id: int) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def update_survey(
+    username: str,
+    survey_id: int,
+    title: str,
+    period_start: str,
+    period_end: str,
+    deadline_at: str,
+    schema: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """배포·대기 조사의 제목, 기간, 안내, 양식을 수정한다."""
+    _require_admin(username)
+    title_value = str(title or "").strip()
+    if not title_value:
+        raise ValueError("제목을 입력하세요.")
+    if str(period_end) < str(period_start):
+        raise ValueError("종료일은 시작일보다 빠를 수 없습니다.")
+    survey = get_survey_by_id(survey_id)
+    if survey is None:
+        raise ValueError("조사를 찾을 수 없습니다.")
+    fields: list[Any] = [title_value, period_start, period_end, deadline_at]
+    sql = """
+        UPDATE surveys
+        SET title = ?, period_start = ?, period_end = ?, deadline_at = ?
+    """
+    if schema is not None and is_generic(survey):
+        sql += ", schema_json = ?"
+        fields.append(json.dumps(slim_schema(normalize_schema(schema)), ensure_ascii=False))
+    sql += " WHERE id = ?"
+    fields.append(survey_id)
+    conn = get_connection()
+    try:
+        conn.execute(sql, tuple(fields))
+        conn.commit()
+    finally:
+        conn.close()
+    updated = get_survey_by_id(survey_id)
+    if updated is None:
+        raise ValueError("조사를 찾을 수 없습니다.")
+    return updated
 
 
 def ensure_open_overtime_survey(username: str) -> dict[str, Any]:
@@ -412,14 +453,24 @@ def list_overtime_entries(username: str, survey_id: int) -> list[dict[str, Any]]
 
 def list_factory_overtime_counts(username: str) -> dict[str, int]:
     """일자별 공장 전체 특근 인원(팀+이름 중복 제외). 모든 계정이 볼 수 있다."""
+    return {key: value["headcount"] for key, value in list_factory_day_totals(username).items()}
+
+
+def list_factory_day_totals(username: str) -> dict[str, dict[str, int]]:
+    """일자별 특근인원·식수인원 합계. 식당 운영은 식수인원 기준이다."""
     people = list_overtime_people(username)
-    counts: dict[str, int] = {}
+    totals: dict[str, dict[str, int]] = {}
     for item in people:
         key = str(item.get("work_date") or "")
         if not key:
             continue
-        counts[key] = counts.get(key, 0) + 1
-    return counts
+        bucket = totals.setdefault(key, {"headcount": 0, "meals": 0})
+        bucket["headcount"] += 1
+        try:
+            bucket["meals"] += int(float(item.get("meal_count") or 0))
+        except (TypeError, ValueError):
+            pass
+    return totals
 
 
 def list_overtime_people(username: str, work_date: str | None = None) -> list[dict[str, Any]]:

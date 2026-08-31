@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+import hashlib
 
 import pandas as pd
 import streamlit as st
 
 from src.config import COMPANIES
 from src.excel_io import (
-    build_overtime_workbook,
+    build_team_input_template,
     filter_entries_for_team,
     parse_overtime_workbook,
+    parse_team_input_workbook,
     sane_default_year,
 )
 from src.store import (
@@ -187,46 +189,69 @@ def _manual_to_entries(frame: pd.DataFrame, work_date: str, team: str, start_seq
     return entries
 
 
-def _render_excel_io(username: str, team: str, survey: dict, existing: list[dict]) -> None:
+def _render_excel_io(
+    username: str,
+    team: str,
+    survey: dict,
+    existing: list[dict],
+    work_date: str | None = None,
+) -> None:
     survey_id = int(survey["id"])
     can_edit, reason = survey_edit_status(username, survey_id)
-    year = sane_default_year(date.fromisoformat(str(survey["period_start"])).year)
-    st.markdown("**엑셀**")
-    st.caption("엑셀을 올리면 지금 적어 둔 내용이 파일 내용으로 바뀝니다.")
+    target_date = work_date or str(survey.get("period_start") or "")
+    roster = list_employees(username, team)
+    existing = [item for item in existing if str(item.get("team") or "") == team]
+    saved = [item for item in existing if str(item.get("work_date") or "") == target_date]
+    st.caption(
+        "양식에 지금 팀 재직인원이 들어 있습니다. "
+        "특근하는 사람만 특근 칸에 예를 적고 시간·식수를 채운 뒤 올리세요."
+    )
     down_col, up_col = st.columns(2)
     with down_col:
         st.download_button(
-            "엑셀 받기",
-            data=build_overtime_workbook(str(survey["title"]), existing),
-            file_name=f"{team}_{survey['title']}.xlsx",
+            "우리 팀 명단 엑셀 받기",
+            data=build_team_input_template(team, target_date, roster, saved),
+            file_name=f"{team}_{target_date}_특근입력.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key=f"dl_team_{survey_id}_{team}",
+            key=f"dl_team_{survey_id}_{team}_{target_date}",
         )
-        st.caption("메일은 자동으로 가지 않습니다.")
     with up_col:
         uploaded = st.file_uploader(
-            "엑셀 올리기",
+            "작성한 엑셀 올리기",
             type=["xlsx"],
-            key=f"up_team_{survey_id}_{team}",
+            key=f"up_team_{survey_id}_{team}_{target_date}",
         )
     if uploaded is None:
         return
-    parsed = filter_entries_for_team(parse_overtime_workbook(uploaded.getvalue(), year), team)
-    for warning in parsed.warnings:
-        st.warning(warning)
-    if not parsed.entries:
-        st.error("파일에서 인원 행을 읽지 못했습니다.")
-        return
+    raw = uploaded.getvalue()
+    parsed = parse_team_input_workbook(raw, default_team=team, default_date=target_date)
+    if parsed.errors and not parsed.entries:
+        fallback = filter_entries_for_team(
+            parse_overtime_workbook(raw, sane_default_year(date.fromisoformat(str(survey["period_start"])).year)),
+            team,
+        )
+        if fallback.entries:
+            parsed.entries = fallback.entries
+            parsed.errors = []
+        else:
+            st.error("\n".join(parsed.errors) or "파일에서 인원 행을 읽지 못했습니다.")
+            return
+    if parsed.errors:
+        st.warning("\n".join(parsed.errors))
+    work_date_use = parsed.work_date or target_date
     enriched = [enrich_entry_from_roster(item, team) for item in parsed.entries]
+    for item in enriched:
+        item["work_date"] = work_date_use
+        item["team"] = team
+    st.success(f"특근 {len(enriched)}명을 읽었습니다.")
     st.dataframe(
         [
             {
-                "일자": item["work_date"],
                 "성명": item["name"],
                 "회사": item.get("company") or "-",
                 "고용형태": item.get("employment_type") or "-",
-                "근무시간": item.get("work_hours"),
-                "식수인원": item.get("meal_count"),
+                "시간": item.get("work_hours"),
+                "식수": item.get("meal_count"),
                 "수기": "예" if item.get("is_manual") else "",
             }
             for item in enriched
@@ -237,13 +262,29 @@ def _render_excel_io(username: str, team: str, survey: dict, existing: list[dict
     if not can_edit:
         st.warning(reason)
         return
-    if st.button("이 내용으로 저장", key=f"apply_xlsx_{survey_id}_{team}"):
-        try:
-            replace_team_entries(username, survey_id, team, enriched)
-            st.success(f"{len(enriched)}명을 엑셀에서 저장했습니다.")
-            st.rerun()
-        except AccessDenied as exc:
-            st.error(str(exc))
+    sig = hashlib.sha256(raw).hexdigest()
+    sig_key = f"team_xlsx_sig_{survey_id}_{team}_{work_date_use}"
+    if st.session_state.get(sig_key) == sig:
+        return
+    others = [item for item in existing if str(item.get("work_date") or "") != work_date_use]
+    try:
+        replace_team_entries(username, survey_id, team, others + enriched)
+        st.session_state[sig_key] = sig
+        for key in list(st.session_state.keys()):
+            text = str(key)
+            if text.startswith(
+                (
+                    f"cal_roster_{survey_id}_{team}_{work_date_use}",
+                    f"cal_manual_{survey_id}_{team}_{work_date_use}",
+                    f"ed_roster_{survey_id}_{team}_{work_date_use}",
+                    f"ed_manual_{survey_id}_{team}_{work_date_use}",
+                )
+            ):
+                del st.session_state[key]
+        st.success(f"{work_date_use} 특근 {len(enriched)}명을 반영했습니다.")
+        st.rerun()
+    except AccessDenied as exc:
+        st.error(str(exc))
 
 
 def render_entry_editor(username: str, team: str, survey: dict) -> None:

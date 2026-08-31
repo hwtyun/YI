@@ -8,7 +8,8 @@ import streamlit as st
 
 from src.config import USERS
 
-SECRETS_TOML_TEMPLATE = """GEMINI_API_KEY = "발급받은키"
+SECRETS_TOML_TEMPLATE = """OPENAI_API_KEY = "발급받은키"
+GEMINI_API_KEY = "발급받은키"
 cookie_key = "긴-무작위-문자열"
 
 [passwords]
