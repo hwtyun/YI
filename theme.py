@@ -24,7 +24,43 @@ html, body, .stApp, [data-testid="stAppViewContainer"] {
     font-family: "Noto Sans KR", sans-serif;
     direction: ltr !important;
 }
-.stApp { background: #f3f6fa; }
+.stApp {
+    background: #f3f6fa;
+    color: #000000;
+    --text-color: #000000;
+}
+h1, h2, h3, h4, h5, h6,
+[data-testid="stHeading"],
+[data-testid="stHeading"] *,
+[data-testid="stCaption"],
+[data-testid="stCaption"] *,
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] *,
+[data-testid="stCheckbox"] label,
+[data-testid="stCheckbox"] p,
+[data-testid="stCheckbox"] span {
+    color: #000000 !important;
+    opacity: 1 !important;
+}
+div[class*="st-key-login_password"] [data-baseweb="input"],
+div[class*="st-key-login_password"] [data-baseweb="base-input"],
+div[class*="st-key-login_password"] input,
+[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) [data-baseweb="input"],
+[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) [data-baseweb="base-input"],
+[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) input {
+    background: #87CEEB !important;
+    background-color: #87CEEB !important;
+    color: #000000 !important;
+    caret-color: #000000 !important;
+}
+div[class*="st-key-login_password"] button,
+div[class*="st-key-login_password"] svg,
+[data-testid="stForm"] [data-testid="stTextInput"]:has(input[type="password"]) svg {
+    color: #000000 !important;
+    fill: #000000 !important;
+}
 html[dir], body[dir], [dir="rtl"], [dir="auto"] {
     direction: ltr !important;
 }
