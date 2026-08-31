@@ -6,6 +6,11 @@ from pathlib import Path
 
 import streamlit as st
 
+try:
+    from branding import SITE_TITLE
+except ImportError:
+    SITE_TITLE = "용인공장 특근·본사요청 취합"
+
 ROOT = Path(__file__).resolve().parent.parent
 LOGO_CANDIDATES = (
     ROOT / "static" / "atec_ci.png",
@@ -16,8 +21,6 @@ NAV_OVERTIME = "overtime"
 NAV_HQ = "hq"
 NAV_ADMIN = "admin"
 NAV_PROFILE = "profile"
-
-SITE_TITLE = "용인공장 특근·본사요청 취합"
 
 THEME_CSS = """
 <style>

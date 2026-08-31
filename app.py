@@ -6,19 +6,10 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from boot import bind_project_package
+from branding import SITE_TITLE
 
-ROOT = Path(__file__).resolve().parent
-# Streamlit Cloud는 저장소를 /mount/src/<repo> 에 둡니다.
-# 패키지 이름이 src 이면 /mount/src 와 충돌해 ModuleNotFoundError가 납니다.
-sys.path.insert(0, str(ROOT))
-
-# Streamlit은 app.py만 다시 읽고 src.* 는 옛 버전을 남긴다.
-# auth/theme에 새 이름이 생기면 ImportError가 반복되므로 매 실행마다 비운다.
-for _name in list(sys.modules):
-    if _name == "src" or _name.startswith("src."):
-        sys.modules.pop(_name, None)
+bind_project_package()
 
 import streamlit as st
 
@@ -26,7 +17,7 @@ from src.auth import get_authenticator, sign_in
 from src.config import USERS
 from src.db import init_db
 from src.secrets_util import missing_secret_names, render_secrets_help
-from src.theme import SITE_TITLE, THEME_CSS, render_logo
+from src.theme import THEME_CSS, render_logo
 from src.views.shell import render_signed_in
 
 st.set_page_config(
