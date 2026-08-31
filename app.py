@@ -520,12 +520,236 @@ def _render_calendar_month_nav(month_cursor) -> None:
             st.rerun()
 
 
+def _render_team_day_excel_io(username: str, team: str, survey: dict, work_date: str) -> None:
+    """해당 팀 명단 엑셀 받기·올리기. Cloud가 옛 survey_editor를 써도 app.py만 올리면 동작한다."""
+    from io import BytesIO
+
+    from openpyxl import Workbook, load_workbook
+
+    from src.store import (
+        AccessDenied,
+        enrich_entry_from_roster,
+        list_employees,
+        list_entries,
+        replace_team_entries,
+        survey_edit_status,
+    )
+
+    try:
+        from src.excel_io import build_team_input_template, parse_team_input_workbook
+    except ImportError:
+        build_team_input_template = None
+        parse_team_input_workbook = None
+
+    survey_id = int(survey["id"])
+    can_edit, reason = survey_edit_status(username, survey_id)
+    roster = list_employees(username, team)
+    existing = [
+        item
+        for item in list_entries(username, survey_id)
+        if str(item.get("team") or "") == team
+    ]
+    saved = [item for item in existing if str(item.get("work_date") or "") == work_date]
+
+    def build_local() -> bytes:
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "특근입력"
+        sheet.append(["팀", team, "특근일자", work_date])
+        sheet.append([])
+        sheet.append(["회사", "성명", "고용형태", "특근", "근무시간", "식수인원", "비고"])
+        saved_by_name = {
+            (str(item.get("name") or "").strip(), str(item.get("company") or "").strip()): item
+            for item in saved
+            if not item.get("is_manual")
+        }
+        for employee in roster:
+            key = (str(employee.get("name") or "").strip(), str(employee.get("company") or "").strip())
+            found = saved_by_name.get(key)
+            sheet.append(
+                [
+                    employee.get("company") or "",
+                    employee.get("name") or "",
+                    employee.get("employment_type") or "",
+                    "예" if found else "",
+                    found.get("work_hours") if found and found.get("work_hours") is not None else 8,
+                    found.get("meal_count") if found and found.get("meal_count") is not None else 1,
+                    (found.get("note") or "") if found else "",
+                ]
+            )
+        for item in saved:
+            if not item.get("is_manual"):
+                continue
+            sheet.append(
+                [
+                    item.get("company") or "",
+                    item.get("name") or "",
+                    "일용직",
+                    "예",
+                    item.get("work_hours") if item.get("work_hours") is not None else 8,
+                    item.get("meal_count") if item.get("meal_count") is not None else 1,
+                    item.get("note") or "",
+                ]
+            )
+        for _ in range(8):
+            sheet.append(["", "", "일용직", "", "", "", ""])
+        sheet.append([])
+        sheet.append(["안내"])
+        sheet.append(["특근하는 사람만 특근 칸에 예 를 적으세요. 비우면 특근이 아닙니다."])
+        output = BytesIO()
+        workbook.save(output)
+        return output.getvalue()
+
+    def parse_local(raw: bytes) -> dict:
+        yes = {"예", "y", "yes", "1", "true", "o", "ㅇ", "체크", "특근", "v"}
+        workbook = load_workbook(BytesIO(raw), data_only=True)
+        sheet = workbook.active
+        header = None
+        start = 2
+        for index, row in enumerate(sheet.iter_rows(min_row=1, max_row=20, max_col=10, values_only=True), start=1):
+            texts = [str(item or "").strip() for item in row]
+            if "성명" in texts and "특근" in texts:
+                header = texts
+                start = index + 1
+                break
+        if header is None:
+            return {"entries": [], "errors": ["성명·특근 헤더를 찾지 못했습니다."]}
+        name_col = header.index("성명")
+        company_col = header.index("회사") if "회사" in header else 0
+        type_col = header.index("고용형태") if "고용형태" in header else 2
+        mark_col = header.index("특근") if "특근" in header else 3
+        hours_col = header.index("근무시간") if "근무시간" in header else 4
+        meal_col = header.index("식수인원") if "식수인원" in header else 5
+        note_col = header.index("비고") if "비고" in header else 6
+        entries = []
+        errors = []
+        for excel_row, row in enumerate(sheet.iter_rows(min_row=start, max_col=10, values_only=True), start=start):
+            values = list(row)
+
+            def cell(idx: int):
+                if idx >= len(values):
+                    return ""
+                return values[idx]
+
+            name = str(cell(name_col) or "").strip()
+            if not name or name == "안내" or name.startswith("특근하는"):
+                continue
+            mark = cell(mark_col)
+            mark_text = str(mark or "").strip().replace(" ", "").lower()
+            if mark is not True and mark_text not in yes and not mark_text.startswith("예"):
+                continue
+            hours_raw = str(cell(hours_col) or "").replace("H", "").replace("h", "").strip()
+            try:
+                hours = float(hours_raw) if hours_raw else 8.0
+            except ValueError:
+                hours = 8.0
+            if hours <= 0:
+                hours = 8.0
+            meals_raw = str(cell(meal_col) or "").strip()
+            try:
+                meals = float(meals_raw) if meals_raw else 1.0
+            except ValueError:
+                meals = 1.0
+            entries.append(
+                {
+                    "seq_no": len(entries) + 1,
+                    "name": name,
+                    "company": str(cell(company_col) or "").strip() or None,
+                    "employment_type": str(cell(type_col) or "").strip() or None,
+                    "work_date": work_date,
+                    "work_hours": hours,
+                    "meal_count": meals,
+                    "note": str(cell(note_col) or "").strip() or None,
+                    "is_manual": 0,
+                    "team": team,
+                }
+            )
+        if not entries:
+            errors.append("특근 칸에 예를 적은 인원이 없습니다.")
+        return {"entries": entries, "errors": errors}
+
+    data = (
+        build_team_input_template(team, work_date, roster, saved)
+        if build_team_input_template is not None
+        else build_local()
+    )
+    st.caption(
+        "양식에 지금 팀 재직인원이 들어 있습니다. "
+        "특근하는 사람만 특근 칸에 예를 적고 시간·식수를 채운 뒤 올리세요."
+    )
+    down_col, up_col = st.columns(2)
+    with down_col:
+        st.download_button(
+            "우리 팀 명단 엑셀 받기",
+            data=data,
+            file_name=f"{team}_{work_date}_특근입력.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"app_dl_team_{survey_id}_{team}_{work_date}",
+        )
+    with up_col:
+        uploaded = st.file_uploader(
+            "작성한 엑셀 올리기",
+            type=["xlsx"],
+            key=f"app_up_team_{survey_id}_{team}_{work_date}",
+        )
+    if uploaded is None:
+        return
+    raw = uploaded.getvalue()
+    if parse_team_input_workbook is not None:
+        parsed_obj = parse_team_input_workbook(raw, default_team=team, default_date=work_date)
+        parsed = {"entries": parsed_obj.entries, "errors": parsed_obj.errors}
+    else:
+        parsed = parse_local(raw)
+    if parsed["errors"] and not parsed["entries"]:
+        st.error("\n".join(parsed["errors"]))
+        return
+    if parsed["errors"]:
+        st.warning("\n".join(parsed["errors"]))
+    enriched = [enrich_entry_from_roster(item, team) for item in parsed["entries"]]
+    for item in enriched:
+        item["work_date"] = work_date
+        item["team"] = team
+    st.success(f"특근 {len(enriched)}명을 읽었습니다.")
+    st.dataframe(
+        [
+            {
+                "성명": item["name"],
+                "회사": item.get("company") or "-",
+                "고용형태": item.get("employment_type") or "-",
+                "시간": item.get("work_hours"),
+                "식수": item.get("meal_count"),
+            }
+            for item in enriched
+        ],
+        hide_index=True,
+        width="stretch",
+    )
+    if not can_edit:
+        st.warning(reason)
+        return
+    sig = hashlib.sha256(raw).hexdigest()
+    sig_key = f"app_team_xlsx_sig_{survey_id}_{team}_{work_date}"
+    if st.session_state.get(sig_key) == sig:
+        return
+    others = [item for item in existing if str(item.get("work_date") or "") != work_date]
+    try:
+        replace_team_entries(username, survey_id, team, others + enriched)
+        st.session_state[sig_key] = sig
+        for key in list(st.session_state.keys()):
+            text = str(key)
+            if text.startswith((f"cal_roster_{survey_id}_{team}_{work_date}", f"cal_manual_{survey_id}_{team}_{work_date}")):
+                del st.session_state[key]
+        st.success(f"{work_date} 특근 {len(enriched)}명을 반영했습니다.")
+        st.rerun()
+    except AccessDenied as exc:
+        st.error(str(exc))
+
+
 def _render_overtime_calendar(username: str, team=None, read_only: bool = False, **kwargs) -> None:
     from datetime import date
 
     from src.config import CAFETERIA_MIN_HEADCOUNT, cafeteria_operating
     from src.store import (
-        list_entries,
         list_factory_overtime_counts,
         list_overtime_people,
         ensure_open_overtime_survey,
@@ -537,9 +761,7 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
         _render_readonly_list,
         _render_team_date_editor,
         _sunday_first_weeks,
-        _team_entries,
     )
-    from src.views.survey_editor import _render_excel_io
 
     st.header("특근인원")
     st.caption(
@@ -650,12 +872,7 @@ def _render_overtime_calendar(username: str, team=None, read_only: bool = False,
             st.caption("아래 명단만 저장됩니다. 위 전체 명단은 모든 팀이 볼 수 있습니다.")
             _render_team_date_editor(username, team, survey, selected_day.isoformat())
             with st.expander("엑셀로 올리기 · 받기"):
-                _render_excel_io(
-                    username,
-                    team,
-                    survey,
-                    _team_entries(list_entries(username, int(survey["id"])), team),
-                )
+                _render_team_day_excel_io(username, team, survey, selected_day.isoformat())
         st.markdown("</div>", unsafe_allow_html=True)
 
 

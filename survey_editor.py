@@ -1,0 +1,387 @@
+from __future__ import annotations
+
+from datetime import date, timedelta
+import hashlib
+
+import pandas as pd
+import streamlit as st
+
+from src.config import COMPANIES
+from src.excel_io import (
+    build_team_input_template,
+    filter_entries_for_team,
+    parse_overtime_workbook,
+    parse_team_input_workbook,
+    sane_default_year,
+)
+from src.store import (
+    AccessDenied,
+    enrich_entry_from_roster,
+    list_employees,
+    list_entries,
+    replace_team_entries,
+    set_submitted,
+    survey_edit_status,
+)
+
+def _period_dates(survey: dict) -> list[str]:
+    start = date.fromisoformat(str(survey["period_start"]))
+    end = date.fromisoformat(str(survey["period_end"]))
+    if end < start:
+        return [start.isoformat()]
+    days: list[str] = []
+    cursor = start
+    while cursor <= end:
+        days.append(cursor.isoformat())
+        cursor += timedelta(days=1)
+    return days
+
+
+def _empty_roster_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "회사": pd.Series(dtype="string"),
+            "성명": pd.Series(dtype="string"),
+            "고용형태": pd.Series(dtype="string"),
+            "특근": pd.Series(dtype="bool"),
+            "근무시간": pd.Series(dtype="float"),
+            "식수인원": pd.Series(dtype="float"),
+            "비고": pd.Series(dtype="string"),
+        }
+    )
+
+
+def _empty_manual_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "성명": pd.Series(dtype="string"),
+            "회사": pd.Series(dtype="string"),
+            "근무시간": pd.Series(dtype="float"),
+            "식수인원": pd.Series(dtype="float"),
+            "비고": pd.Series(dtype="string"),
+        }
+    )
+
+
+def _match_entry(entries: list[dict], employee: dict) -> dict | None:
+    name = str(employee.get("name") or "").strip()
+    company = str(employee.get("company") or "").strip()
+    exact = [
+        item
+        for item in entries
+        if str(item.get("name") or "").strip() == name
+        and str(item.get("company") or "").strip() == company
+        and not item.get("is_manual")
+    ]
+    if exact:
+        return exact[0]
+    by_name = [
+        item
+        for item in entries
+        if str(item.get("name") or "").strip() == name and not item.get("is_manual")
+    ]
+    return by_name[0] if len(by_name) == 1 else None
+
+
+def _roster_frame(roster: list[dict], saved: list[dict]) -> pd.DataFrame:
+    if not roster:
+        return _empty_roster_frame()
+    rows = []
+    for employee in roster:
+        found = _match_entry(saved, employee)
+        rows.append(
+            {
+                "회사": employee.get("company") or "",
+                "성명": employee.get("name") or "",
+                "고용형태": employee.get("employment_type") or "",
+                "특근": found is not None,
+                "근무시간": found["work_hours"] if found and found.get("work_hours") is not None else 8,
+                "식수인원": found["meal_count"] if found and found.get("meal_count") is not None else 1,
+                "비고": (found.get("note") or "") if found else "",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _manual_frame(saved: list[dict]) -> pd.DataFrame:
+    manuals = [item for item in saved if item.get("is_manual")]
+    if not manuals:
+        return _empty_manual_frame()
+    return pd.DataFrame(
+        [
+            {
+                "성명": item.get("name") or "",
+                "회사": item.get("company") or COMPANIES[0],
+                "근무시간": item.get("work_hours") if item.get("work_hours") is not None else 8,
+                "식수인원": item.get("meal_count") if item.get("meal_count") is not None else 1,
+                "비고": item.get("note") or "",
+            }
+            for item in manuals
+        ]
+    )
+
+
+def _na_text(value: object) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    text = str(value).strip()
+    return "" if text.lower() == "nan" else text
+
+
+def _number_or_default(value: object, default: float) -> float:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _roster_to_entries(frame: pd.DataFrame, work_date: str, team: str) -> list[dict]:
+    entries: list[dict] = []
+    if frame is None or frame.empty:
+        return entries
+    for _, row in frame.iterrows():
+        if not bool(row.get("특근")):
+            continue
+        name = _na_text(row.get("성명"))
+        if not name:
+            continue
+        entries.append(
+            {
+                "seq_no": len(entries) + 1,
+                "name": name,
+                "company": _na_text(row.get("회사")) or None,
+                "employment_type": _na_text(row.get("고용형태")) or None,
+                "work_date": work_date,
+                "work_hours": _number_or_default(row.get("근무시간"), 8),
+                "meal_count": _number_or_default(row.get("식수인원"), 1),
+                "note": _na_text(row.get("비고")) or None,
+                "is_manual": 0,
+                "team": team,
+            }
+        )
+    return entries
+
+
+def _manual_to_entries(frame: pd.DataFrame, work_date: str, team: str, start_seq: int) -> list[dict]:
+    entries: list[dict] = []
+    if frame is None or frame.empty:
+        return entries
+    for _, row in frame.iterrows():
+        name = _na_text(row.get("성명"))
+        if not name:
+            continue
+        entries.append(
+            {
+                "seq_no": start_seq + len(entries),
+                "name": name,
+                "company": _na_text(row.get("회사")) or COMPANIES[0],
+                "employment_type": "일용직",
+                "work_date": work_date,
+                "work_hours": _number_or_default(row.get("근무시간"), 8),
+                "meal_count": _number_or_default(row.get("식수인원"), 1),
+                "note": _na_text(row.get("비고")) or None,
+                "is_manual": 1,
+                "team": team,
+            }
+        )
+    return entries
+
+
+def _render_excel_io(
+    username: str,
+    team: str,
+    survey: dict,
+    existing: list[dict],
+    work_date: str | None = None,
+) -> None:
+    survey_id = int(survey["id"])
+    can_edit, reason = survey_edit_status(username, survey_id)
+    target_date = work_date or str(survey.get("period_start") or "")
+    roster = list_employees(username, team)
+    existing = [item for item in existing if str(item.get("team") or "") == team]
+    saved = [item for item in existing if str(item.get("work_date") or "") == target_date]
+    st.caption(
+        "양식에 지금 팀 재직인원이 들어 있습니다. "
+        "특근하는 사람만 특근 칸에 예를 적고 시간·식수를 채운 뒤 올리세요."
+    )
+    down_col, up_col = st.columns(2)
+    with down_col:
+        st.download_button(
+            "우리 팀 명단 엑셀 받기",
+            data=build_team_input_template(team, target_date, roster, saved),
+            file_name=f"{team}_{target_date}_특근입력.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"dl_team_{survey_id}_{team}_{target_date}",
+        )
+    with up_col:
+        uploaded = st.file_uploader(
+            "작성한 엑셀 올리기",
+            type=["xlsx"],
+            key=f"up_team_{survey_id}_{team}_{target_date}",
+        )
+    if uploaded is None:
+        return
+    raw = uploaded.getvalue()
+    parsed = parse_team_input_workbook(raw, default_team=team, default_date=target_date)
+    if parsed.errors and not parsed.entries:
+        fallback = filter_entries_for_team(
+            parse_overtime_workbook(raw, sane_default_year(date.fromisoformat(str(survey["period_start"])).year)),
+            team,
+        )
+        if fallback.entries:
+            parsed.entries = fallback.entries
+            parsed.errors = []
+        else:
+            st.error("\n".join(parsed.errors) or "파일에서 인원 행을 읽지 못했습니다.")
+            return
+    if parsed.errors:
+        st.warning("\n".join(parsed.errors))
+    work_date_use = parsed.work_date or target_date
+    enriched = [enrich_entry_from_roster(item, team) for item in parsed.entries]
+    for item in enriched:
+        item["work_date"] = work_date_use
+        item["team"] = team
+    st.success(f"특근 {len(enriched)}명을 읽었습니다.")
+    st.dataframe(
+        [
+            {
+                "성명": item["name"],
+                "회사": item.get("company") or "-",
+                "고용형태": item.get("employment_type") or "-",
+                "시간": item.get("work_hours"),
+                "식수": item.get("meal_count"),
+                "수기": "예" if item.get("is_manual") else "",
+            }
+            for item in enriched
+        ],
+        hide_index=True,
+        width="stretch",
+    )
+    if not can_edit:
+        st.warning(reason)
+        return
+    sig = hashlib.sha256(raw).hexdigest()
+    sig_key = f"team_xlsx_sig_{survey_id}_{team}_{work_date_use}"
+    if st.session_state.get(sig_key) == sig:
+        return
+    others = [item for item in existing if str(item.get("work_date") or "") != work_date_use]
+    try:
+        replace_team_entries(username, survey_id, team, others + enriched)
+        st.session_state[sig_key] = sig
+        for key in list(st.session_state.keys()):
+            text = str(key)
+            if text.startswith(
+                (
+                    f"cal_roster_{survey_id}_{team}_{work_date_use}",
+                    f"cal_manual_{survey_id}_{team}_{work_date_use}",
+                    f"ed_roster_{survey_id}_{team}_{work_date_use}",
+                    f"ed_manual_{survey_id}_{team}_{work_date_use}",
+                )
+            ):
+                del st.session_state[key]
+        st.success(f"{work_date_use} 특근 {len(enriched)}명을 반영했습니다.")
+        st.rerun()
+    except AccessDenied as exc:
+        st.error(str(exc))
+
+
+def render_entry_editor(username: str, team: str, survey: dict) -> None:
+    survey_id = int(survey["id"])
+    dates_key = f"survey_dates_{survey_id}_{team}"
+    existing = list_entries(username, survey_id)
+    roster = list_employees(username, team)
+    if dates_key not in st.session_state:
+        dates = _period_dates(survey)
+        extra = sorted({str(item["work_date"]) for item in existing if item["work_date"] not in dates})
+        st.session_state[dates_key] = dates + extra
+
+    st.caption(
+        f"{team} · 이름 칸은 고칠 수 없습니다. 특근하는 사람만 표시하세요."
+    )
+    if not roster:
+        st.info("명부가 없습니다. 관리자가 명부를 올리면 이름이 자동으로 나옵니다. 일용직은 아래 칸에 적으세요.")
+
+    add_col, btn_col = st.columns([3, 1])
+    with add_col:
+        new_date = st.date_input(
+            "특근일자 추가",
+            value=date.fromisoformat(str(survey["period_start"])),
+            key=f"add_date_{survey_id}_{team}",
+        )
+    with btn_col:
+        st.write("")
+        if st.button("일자 추가", key=f"add_date_btn_{survey_id}_{team}"):
+            date_text = new_date.isoformat()
+            current = list(st.session_state[dates_key])
+            if date_text not in current:
+                st.session_state[dates_key] = current + [date_text]
+                st.rerun()
+
+    grouped: dict[str, list[dict]] = {}
+    for item in existing:
+        grouped.setdefault(str(item["work_date"]), []).append(item)
+
+    collected: list[dict] = []
+    for work_date in list(st.session_state[dates_key]):
+        with st.expander(f"특근일자 {work_date}", expanded=True):
+            if st.button("이 일자 삭제", key=f"del_date_{survey_id}_{team}_{work_date}"):
+                st.session_state[dates_key] = [
+                    item for item in st.session_state[dates_key] if item != work_date
+                ]
+                st.rerun()
+            saved = grouped.get(work_date, [])
+            roster_edited = st.data_editor(
+                _roster_frame(roster, saved),
+                hide_index=True,
+                width="stretch",
+                disabled=["회사", "성명", "고용형태"],
+                column_config={
+                    "회사": st.column_config.TextColumn("회사"),
+                    "성명": st.column_config.TextColumn("성명"),
+                    "고용형태": st.column_config.TextColumn("고용형태"),
+                    "특근": st.column_config.CheckboxColumn("특근", default=False),
+                    "근무시간": st.column_config.NumberColumn("근무시간", min_value=0, max_value=24, step=0.5),
+                    "식수인원": st.column_config.NumberColumn("식수인원", min_value=0, max_value=20, step=1),
+                    "비고": st.column_config.TextColumn("비고"),
+                },
+                key=f"ed_roster_{survey_id}_{team}_{work_date}",
+            )
+            st.caption("일용직 수기 — 명부에 없는 사람만 적습니다. 고용형태는 일용직으로 저장됩니다.")
+            manual_edited = st.data_editor(
+                _manual_frame(saved),
+                num_rows="dynamic",
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "성명": st.column_config.TextColumn("성명"),
+                    "회사": st.column_config.SelectboxColumn("회사", options=COMPANIES),
+                    "근무시간": st.column_config.NumberColumn("근무시간", min_value=0, max_value=24, step=0.5),
+                    "식수인원": st.column_config.NumberColumn("식수인원", min_value=0, max_value=20, step=1),
+                    "비고": st.column_config.TextColumn("비고"),
+                },
+                key=f"ed_manual_{survey_id}_{team}_{work_date}",
+            )
+            roster_entries = _roster_to_entries(roster_edited, work_date, team)
+            collected.extend(roster_entries)
+            collected.extend(_manual_to_entries(manual_edited, work_date, team, len(roster_entries) + 1))
+
+    _render_excel_io(username, team, survey, existing)
+
+    can_edit, reason = survey_edit_status(username, survey_id)
+    if not can_edit:
+        st.warning(reason)
+        return
+
+    save_col, submit_col = st.columns(2)
+    try:
+        if save_col.button("저장", key=f"save_{survey_id}_{team}"):
+            replace_team_entries(username, survey_id, team, collected)
+            st.success("저장했습니다. 특근에 표시한 인원과 일용직 수기만 남깁니다.")
+        if submit_col.button("제출", type="primary", key=f"submit_{survey_id}_{team}"):
+            replace_team_entries(username, survey_id, team, collected)
+            set_submitted(username, survey_id, team, True)
+            st.success("제출했습니다. 마감 전까지 다시 수정할 수 있습니다.")
+    except AccessDenied as exc:
+        st.error(str(exc))

@@ -255,6 +255,203 @@ def parse_employee_roster(data: bytes | BytesIO) -> RosterParseResult:
     return result
 
 
+@dataclass
+class TeamInputParseResult:
+    work_date: str | None = None
+    team: str | None = None
+    entries: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+
+TEAM_INPUT_HEADERS = ["회사", "성명", "고용형태", "특근", "근무시간", "식수인원", "비고"]
+OVERTIME_YES = {
+    "예", "y", "yes", "1", "true", "o", "ㅇ", "체크", "특근", "v", "○", "ok",
+}
+OVERTIME_NO = {"n", "no", "아니오", "아니요", "아님", "x", "0", "false", "미특근", "×"}
+
+
+def _is_overtime_mark(value: object) -> bool:
+    if value is True:
+        return True
+    if value is False or value is None:
+        return False
+    text = str(value).strip().replace(" ", "").lower()
+    if not text:
+        return False
+    if text in OVERTIME_NO:
+        return False
+    return text in OVERTIME_YES or text.startswith("예")
+
+
+def _match_saved_entry(saved: list[dict[str, Any]], employee: dict[str, Any]) -> dict[str, Any] | None:
+    name = str(employee.get("name") or "").strip()
+    company = str(employee.get("company") or "").strip()
+    exact = [
+        item
+        for item in saved
+        if str(item.get("name") or "").strip() == name
+        and str(item.get("company") or "").strip() == company
+        and not item.get("is_manual")
+    ]
+    if exact:
+        return exact[0]
+    by_name = [
+        item
+        for item in saved
+        if str(item.get("name") or "").strip() == name and not item.get("is_manual")
+    ]
+    return by_name[0] if len(by_name) == 1 else None
+
+
+def build_team_input_template(
+    team: str,
+    work_date: str,
+    roster: list[dict[str, Any]],
+    saved: list[dict[str, Any]] | None = None,
+) -> bytes:
+    """해당 팀 재직인원 목록. 특근 칸에 예를 적으면 업로드 때 반영된다."""
+    saved = saved or []
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "특근입력"
+    sheet.append(["팀", team, "특근일자", work_date])
+    sheet.append([])
+    sheet.append(TEAM_INPUT_HEADERS)
+    for cell in sheet[3]:
+        cell.font = Font(bold=True)
+    roster_names = {(str(item.get("name") or "").strip(), str(item.get("company") or "").strip()) for item in roster}
+    for employee in roster:
+        found = _match_saved_entry(saved, employee)
+        hours = found.get("work_hours") if found and found.get("work_hours") is not None else 8
+        meals = found.get("meal_count") if found and found.get("meal_count") is not None else 1
+        sheet.append(
+            [
+                employee.get("company") or "",
+                employee.get("name") or "",
+                employee.get("employment_type") or "",
+                "예" if found else "",
+                hours,
+                meals,
+                (found.get("note") or "") if found else "",
+            ]
+        )
+    manuals = [item for item in saved if item.get("is_manual")]
+    for item in manuals:
+        sheet.append(
+            [
+                item.get("company") or "",
+                item.get("name") or "",
+                item.get("employment_type") or "일용직",
+                "예",
+                item.get("work_hours") if item.get("work_hours") is not None else 8,
+                item.get("meal_count") if item.get("meal_count") is not None else 1,
+                item.get("note") or "",
+            ]
+        )
+        roster_names.add((str(item.get("name") or "").strip(), str(item.get("company") or "").strip()))
+    for _ in range(8):
+        sheet.append(["", "", "일용직", "", "", "", ""])
+    sheet.append([])
+    sheet.append(["안내"])
+    sheet.append(["특근하는 사람만 특근 칸에 예 를 적으세요. 비우면 특근이 아닙니다."])
+    sheet.append(["근무시간은 8 또는 8H, 식수인원은 숫자입니다."])
+    sheet.append(["명부에 없는 일용직은 아래 빈 칸에 성명·회사·특근(예)을 적으세요."])
+    for index, width in enumerate((18, 14, 12, 10, 12, 12, 16), start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def parse_team_input_workbook(
+    data: bytes | BytesIO,
+    default_team: str | None = None,
+    default_date: str | None = None,
+) -> TeamInputParseResult:
+    workbook = load_workbook(filename=BytesIO(data) if isinstance(data, bytes) else data, data_only=True)
+    sheet = workbook.active
+    result = TeamInputParseResult(team=default_team, work_date=default_date)
+    meta_row = [_text(item) for item in next(sheet.iter_rows(min_row=1, max_row=1, max_col=8, values_only=True))]
+    for index, cell in enumerate(meta_row):
+        if cell == "팀" and index + 1 < len(meta_row) and meta_row[index + 1]:
+            result.team = meta_row[index + 1]
+        if cell in {"특근일자", "일자"} and index + 1 < len(meta_row) and meta_row[index + 1]:
+            parsed_date = parse_header_date(meta_row[index + 1], sane_default_year(None))
+            result.work_date = parsed_date or str(meta_row[index + 1]).strip()
+    header_row = None
+    header_index = None
+    for index, row in enumerate(sheet.iter_rows(min_row=1, max_row=20, max_col=10, values_only=True), start=1):
+        texts = [_text(item) for item in row]
+        if "성명" in texts and ("특근" in texts or "근무시간" in texts or "시간" in texts):
+            header_row = texts
+            header_index = index
+            break
+    if header_row is None or header_index is None:
+        result.errors.append("성명·특근 헤더를 찾지 못했습니다. 팀 명단 양식을 받아 사용하세요.")
+        return result
+    headers = _header_map(header_row)
+    name_col = _find_col(headers, {"성명", "이름", "name"})
+    company_col = _find_col(headers, {"회사", "계열사", "company"})
+    type_col = _find_col(headers, {"고용형태", "고용", "구분"})
+    mark_col = _find_col(headers, {"특근", "특근여부", "체크"})
+    hours_col = _find_col(headers, {"근무시간", "시간", "특근시간", "work_hours"})
+    meal_col = _find_col(headers, {"식수인원", "식수", "meal"})
+    note_col = _find_col(headers, {"비고", "메모", "note"})
+    if name_col is None:
+        result.errors.append("성명 열이 없습니다.")
+        return result
+    work_date = result.work_date or default_date
+    team = result.team or default_team
+    if not work_date:
+        result.errors.append("특근일자를 읽지 못했습니다.")
+        return result
+    seen: set[tuple[str, str]] = set()
+    for excel_row, row in enumerate(sheet.iter_rows(min_row=header_index + 1, max_col=10, values_only=True), start=header_index + 1):
+        values = list(row)
+
+        def cell(idx: int | None) -> object:
+            if idx is None or idx >= len(values):
+                return ""
+            return values[idx]
+
+        name = _text(cell(name_col))
+        if not name or name == "안내" or name.startswith(("특근하는", "근무시간은", "명부에")):
+            continue
+        marked = _is_overtime_mark(cell(mark_col)) if mark_col is not None else False
+        if not marked:
+            continue
+        company = _text(cell(company_col)) if company_col is not None else ""
+        employment = _text(cell(type_col)) if type_col is not None else ""
+        hours = parse_work_hours(cell(hours_col)) if hours_col is not None else 0.0
+        if hours <= 0:
+            hours = 8.0
+        meals_raw = cell(meal_col) if meal_col is not None else None
+        meals = parse_work_hours(meals_raw) if meals_raw not in (None, "") else 1.0
+        note = _text(cell(note_col)) if note_col is not None else ""
+        key = (name, company)
+        if key in seen:
+            result.errors.append(f"{excel_row}행 '{name}': 이름이 중복됩니다.")
+            continue
+        seen.add(key)
+        result.entries.append(
+            {
+                "seq_no": len(result.entries) + 1,
+                "name": name,
+                "company": company or None,
+                "employment_type": employment or None,
+                "work_date": work_date,
+                "work_hours": hours,
+                "meal_count": meals,
+                "note": note or None,
+                "is_manual": 0,
+                "team": team,
+            }
+        )
+    if not result.entries and not result.errors:
+        result.errors.append("특근 칸에 예를 적은 인원이 없습니다.")
+    return result
+
+
 def build_employee_template(rows: list[dict[str, Any]] | None = None) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
