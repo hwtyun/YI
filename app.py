@@ -2,14 +2,32 @@
 
 실행: 프로젝트 폴더에서
     streamlit run app.py
+
+로그인 화면 함수는 이 파일에 둔다. Cloud가 src.theme 옛 모듈을 남기면
+새 이름을 import할 때 ImportError가 나므로 src.theme에서 새 함수를 가져오지 않는다.
 """
 
 from __future__ import annotations
 
-from boot import bind_project_package
-from branding import SITE_TITLE
+from pathlib import Path
+
+try:
+    from boot import bind_project_package
+except ImportError:
+    import sys
+
+    def bind_project_package() -> Path:
+        root = str(Path(__file__).resolve().parent)
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        return Path(root)
 
 bind_project_package()
+
+try:
+    from branding import SITE_TITLE
+except ImportError:
+    SITE_TITLE = "용인공장 특근·본사요청 취합"
 
 import streamlit as st
 
@@ -17,8 +35,6 @@ from src.auth import get_authenticator, sign_in
 from src.config import USERS
 from src.db import init_db
 from src.secrets_util import missing_secret_names, render_secrets_help
-from src.theme import inject_theme, render_logo, render_login_caption, render_site_title
-from src.views.shell import render_signed_in
 
 st.set_page_config(
     page_title=SITE_TITLE,
@@ -28,14 +44,96 @@ st.set_page_config(
 )
 init_db()
 
+_ROOT = Path(__file__).resolve().parent
+_LOGO_CANDIDATES = (
+    _ROOT / "static" / "atec_ci.png",
+    _ROOT / "ATEC 영문_기본형.png",
+)
+_LOGIN_CSS = """
+<style>
+div[class*="st-key-yi_login"] h1,
+div[class*="st-key-yi_login"] h2,
+div[class*="st-key-yi_login"] p,
+div[class*="st-key-yi_login"] label,
+div[class*="st-key-yi_login"] span,
+div[class*="st-key-yi_login"] [data-testid="stWidgetLabel"],
+div[class*="st-key-yi_login"] [data-testid="stWidgetLabel"] *,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] p,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] span,
+div[class*="st-key-yi_login"] [data-testid="stCheckbox"] label,
+div[class*="st-key-yi_login"] [data-testid="stMarkdown"] p,
+.yi-site-title, .yi-login-caption {
+    color: #000000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] button,
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] p,
+div[class*="st-key-yi_login"] [data-testid="stFormSubmitButton"] span {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] [data-baseweb="base-input"],
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] input,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] > div > div {
+    background: #87CEEB !important;
+    background-color: #87CEEB !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    caret-color: #000000 !important;
+}
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] button,
+div[class*="st-key-yi_login"] [data-testid="stTextInput"] svg {
+    color: #000000 !important;
+    fill: #000000 !important;
+}
+</style>
+"""
+
+
+def _inject_login_styles() -> None:
+    try:
+        st.html(_LOGIN_CSS)
+    except Exception:
+        st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+
+
+def _render_site_title() -> None:
+    st.markdown(
+        f'<h1 class="yi-site-title" style="color:#000000 !important;'
+        f'-webkit-text-fill-color:#000000 !important;opacity:1 !important;'
+        f'font-weight:700;font-size:2rem;margin:0.15rem 0 0.4rem 0;">'
+        f"{SITE_TITLE}</h1>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_login_caption() -> None:
+    st.markdown(
+        '<p class="yi-login-caption" style="color:#000000 !important;'
+        '-webkit-text-fill-color:#000000 !important;opacity:1 !important;'
+        'font-size:0.95rem;margin:0 0 0.7rem 0;">'
+        "아이디로 로그인한 뒤 본인 화면만 사용합니다. 휴대폰에서도 입력할 수 있습니다.</p>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_login_logo(width: int = 160) -> None:
+    for path in _LOGO_CANDIDATES:
+        if path.exists():
+            st.image(str(path), width=width)
+            return
+    st.markdown('<div style="font-weight:700;color:#9b1c2e">ATEC</div>', unsafe_allow_html=True)
+
 
 def _secrets_ready() -> bool:
     missing = missing_secret_names()
     if not missing:
         return True
-    inject_theme()
-    render_logo(160)
-    render_site_title()
+    _inject_login_styles()
+    _render_login_logo(160)
+    _render_site_title()
     render_secrets_help(missing)
     return False
 
@@ -59,11 +157,11 @@ def _restore_cookie(authenticator) -> None:
 
 
 def _render_login(authenticator) -> None:
-    inject_theme()
+    _inject_login_styles()
     with st.container(key="yi_login"):
-        render_logo(160)
-        render_site_title()
-        render_login_caption()
+        _render_login_logo(160)
+        _render_site_title()
+        _render_login_caption()
         st.checkbox("로그인 상태 유지", value=True, key="remember_login")
 
         with st.form("yi_factory_login"):
@@ -88,6 +186,8 @@ def _render_login(authenticator) -> None:
 
 
 def _render_app(authenticator) -> None:
+    from src.views.shell import render_signed_in
+
     username = st.session_state.get("username")
     if not username or username not in USERS:
         st.error("로그인 정보를 확인할 수 없습니다. 다시 로그인하세요.")
