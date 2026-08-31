@@ -541,7 +541,7 @@ html[data-theme="dark"] select {
     html:not([data-theme="light"]) input,
     html:not([data-theme="light"]) textarea,
     html:not([data-theme="light"]) select {
-        color-scheme: dark !important;
+        color-scheme: light !important;
     }
 }
 [data-testid="stTextInput"] [data-baseweb="input"],
@@ -617,10 +617,12 @@ html[data-theme="dark"] [data-testid="stRadio"] [data-testid="stMarkdownContaine
     html:not([data-theme="light"]) [data-testid="stSelectbox"] input,
     html:not([data-theme="light"]) [data-testid="stSelectbox"] span,
     html:not([data-theme="light"]) [data-testid="stSelectbox"] div,
-    html:not([data-theme="light"]) [data-testid="stTextArea"] textarea {
-        color: #e6edf3 !important;
-        -webkit-text-fill-color: #e6edf3 !important;
-        caret-color: #e6edf3 !important;
+    html:not([data-theme="light"]) [data-testid="stTextArea"] textarea,
+    html:not([data-theme="light"]) [data-testid="stWidgetLabel"] *,
+    html:not([data-theme="light"]) [data-testid="stHeading"] * {
+        color: #111111 !important;
+        -webkit-text-fill-color: #111111 !important;
+        caret-color: #111111 !important;
     }
 }
 html[data-theme="dark"] [data-testid="stTextInput"] input,

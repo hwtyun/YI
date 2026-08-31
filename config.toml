@@ -13,12 +13,6 @@ showErrorDetails = "none"
 [theme]
 base = "light"
 primaryColor = "#1a5fb4"
-textColor = "#1f2328"
+textColor = "#111111"
 backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#f6f8fa"
-
-[theme.dark]
-primaryColor = "#58a6ff"
-textColor = "#e6edf3"
-backgroundColor = "#0d1117"
-secondaryBackgroundColor = "#161b22"

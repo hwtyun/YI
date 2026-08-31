@@ -52,66 +52,22 @@ _LOGO_CANDIDATES = (
 )
 _PAGE_TEXT_CSS = """
 <style>
-:root, html[data-theme="light"] {
-    --yi-fg: #1f2328;
-    --yi-bg: #ffffff;
-    --yi-canvas: #ffffff;
-    --yi-input-bg: #ffffff;
-    --yi-input-fg: #1f2328;
-    --yi-muted: #656d76;
-    --yi-border: #d0d7de;
-    --yi-btn-bg: #f6f8fa;
-    --yi-btn-fg: #1f2328;
-}
-@media (prefers-color-scheme: dark) {
-    :root {
-        --yi-fg: #e6edf3;
-        --yi-bg: #0d1117;
-        --yi-canvas: #161b22;
-        --yi-input-bg: #21262d;
-        --yi-input-fg: #e6edf3;
-        --yi-muted: #8b949e;
-        --yi-border: #30363d;
-        --yi-btn-bg: #21262d;
-        --yi-btn-fg: #e6edf3;
-    }
-}
-html[data-theme="dark"] {
-    --yi-fg: #e6edf3;
-    --yi-bg: #0d1117;
-    --yi-canvas: #161b22;
-    --yi-input-bg: #21262d;
-    --yi-input-fg: #e6edf3;
-    --yi-muted: #8b949e;
-    --yi-border: #30363d;
-    --yi-btn-bg: #21262d;
-    --yi-btn-fg: #e6edf3;
-}
-html[data-theme="light"] {
+html, body, .stApp, [data-testid="stAppViewContainer"],
+[data-testid="stMain"], .block-container {
     color-scheme: light !important;
-    color: var(--yi-fg);
-    background: var(--yi-bg);
-}
-html[data-theme="dark"],
-html[data-theme="dark"] body,
-html[data-theme="dark"] .stApp,
-html[data-theme="dark"] [data-testid="stAppViewContainer"],
-html[data-theme="dark"] [data-testid="stMain"],
-html[data-theme="dark"] .block-container {
-    color-scheme: dark !important;
-    background: var(--yi-bg) !important;
-    background-color: var(--yi-bg) !important;
-    color: var(--yi-fg) !important;
-    --text-color: var(--yi-fg) !important;
-    --textColor: var(--yi-fg) !important;
-}
-@media (prefers-color-scheme: dark) {
-    html:not([data-theme="light"]),
-    html:not([data-theme="light"]) body,
-    html:not([data-theme="light"]) .stApp {
-        color-scheme: dark !important;
-        color: var(--yi-fg);
-    }
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    --yi-fg: #111111;
+    --yi-bg: #ffffff;
+    --yi-input-bg: #ffffff;
+    --yi-input-fg: #111111;
+    --yi-muted: #3d4a57;
+    --yi-border: #c5d4e3;
+    --text-color: #111111 !important;
+    --textColor: #111111 !important;
+    --background-color: #ffffff !important;
+    --secondary-background-color: #f6f8fa !important;
 }
 [data-testid="stHeading"],
 [data-testid="stHeading"] *,
@@ -124,28 +80,27 @@ html[data-theme="dark"] .block-container {
 .stHeading, .stHeading *,
 .stCaption, .stCaption *,
 h1, h2, h3, h4, h5, h6,
+label,
 [data-testid="stMarkdown"] p,
 [data-testid="stMarkdown"] li,
+[data-testid="stMarkdown"] span,
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] li,
-[data-testid="stExpander"] summary,
-[data-testid="stMetric"] label,
-[data-testid="stTabs"] button,
-[data-testid="stAlert"] p {
-    color: var(--yi-fg) !important;
-    opacity: 1 !important;
-}
+[data-testid="stMarkdownContainer"] span,
 [data-testid="stRadio"] label,
 [data-testid="stRadio"] p,
 [data-testid="stRadio"] span,
-[data-testid="stRadio"] [data-testid="stMarkdownContainer"],
-[data-testid="stRadio"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stRadio"] [data-testid="stMarkdownContainer"] span,
 [data-testid="stCheckbox"] label,
 [data-testid="stCheckbox"] p,
-[data-testid="stCheckbox"] span {
-    color: var(--yi-fg) !important;
-    -webkit-text-fill-color: var(--yi-fg) !important;
+[data-testid="stCheckbox"] span,
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] p,
+[data-testid="stMetric"] label,
+[data-testid="stTabs"] button,
+[data-testid="stAlert"] p,
+.yi-hello, .yi-hello * {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
     opacity: 1 !important;
 }
 button[kind="primary"],
@@ -167,128 +122,76 @@ button[kind="primary"] *,
 [data-testid="stFileUploader"] button * {
     background: transparent !important;
     border: none !important;
-    box-shadow: none !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }
 button[kind="secondary"],
 [data-testid="stBaseButton-secondary"],
 [data-testid="stBaseButton-secondaryFormSubmit"] {
-    background-color: var(--yi-btn-bg) !important;
-    border: 1px solid var(--yi-border) !important;
-    color: var(--yi-btn-fg) !important;
-    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d0d7de !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
 }
 button[kind="secondary"] *,
 [data-testid="stBaseButton-secondary"] *,
 [data-testid="stBaseButton-secondaryFormSubmit"] * {
     background: transparent !important;
     border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: var(--yi-btn-fg) !important;
-    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
 }
 div[class*="st-key-yi_nav"] button,
 div[class*="st-key-yi_nav"] button * {
     background: transparent !important;
     box-shadow: none !important;
-    color: var(--yi-muted) !important;
-    -webkit-text-fill-color: var(--yi-muted) !important;
-}
-div[class*="st-key-yi_nav"] button {
-    border-left: none !important;
-    border-right: none !important;
-    border-top: none !important;
+    color: #3d4a57 !important;
+    -webkit-text-fill-color: #3d4a57 !important;
 }
 div[class*="st-key-yi_user"] button {
-    background-color: var(--yi-btn-bg) !important;
-    border: 1px solid var(--yi-border) !important;
-    color: var(--yi-btn-fg) !important;
-    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d0d7de !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
 }
 div[class*="st-key-yi_user"] button * {
     background: transparent !important;
     border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: var(--yi-btn-fg) !important;
-    -webkit-text-fill-color: var(--yi-btn-fg) !important;
+    color: #1a365d !important;
+    -webkit-text-fill-color: #1a365d !important;
 }
-html[data-theme="dark"] div[class*="st-key-yi_topbar"],
-html[data-theme="dark"] .yi-card {
-    background: var(--yi-canvas) !important;
-    border-color: var(--yi-border) !important;
-    box-shadow: none !important;
-}
-.yi-hello, .yi-hello * {
-    color: var(--yi-fg) !important;
-    -webkit-text-fill-color: var(--yi-fg) !important;
-}
-html[data-theme="light"] input,
-html[data-theme="light"] textarea,
-html[data-theme="light"] select {
+input, textarea, select {
     color-scheme: light !important;
 }
-html[data-theme="dark"] input,
-html[data-theme="dark"] textarea,
-html[data-theme="dark"] select {
-    color-scheme: dark !important;
-}
-@media (prefers-color-scheme: dark) {
-    html:not([data-theme="light"]) input,
-    html:not([data-theme="light"]) textarea,
-    html:not([data-theme="light"]) select {
-        color-scheme: dark !important;
-    }
-}
 [data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stTextInput"] [data-baseweb="input"] div,
 [data-testid="stNumberInput"] [data-baseweb="input"],
 [data-testid="stDateInput"] [data-baseweb="input"],
 [data-testid="stTimeInput"] [data-baseweb="input"],
+[data-testid="stSelectbox"] [data-baseweb="select"],
 [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] > div > div,
 [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
-[data-testid="stTextArea"] [data-baseweb="textarea"] {
-    background-color: var(--yi-input-bg) !important;
-    border: 1px solid var(--yi-border) !important;
+[data-testid="stTextArea"] [data-baseweb="textarea"],
+[data-testid="stFileUploader"] section {
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #c5d4e3 !important;
     border-radius: 6px !important;
     box-shadow: none !important;
-    overflow: hidden !important;
-    min-height: 38px !important;
-}
-[data-testid="stTextArea"] [data-baseweb="textarea"] {
-    min-height: 96px !important;
 }
 [data-testid="stTextInput"] [data-baseweb="base-input"],
 [data-testid="stTextInput"] [data-baseweb="base-input"] > div,
-[data-testid="stNumberInput"] [data-baseweb="base-input"],
-[data-testid="stDateInput"] [data-baseweb="base-input"],
-[data-testid="stTimeInput"] [data-baseweb="base-input"],
 [data-testid="stTextArea"] [data-baseweb="base-input"],
 [data-testid="stTextArea"] [data-baseweb="base-input"] > div {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    outline: none !important;
 }
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
 [data-testid="stDateInput"] input,
 [data-testid="stTimeInput"] input,
-[data-testid="stSelectbox"] input,
-[data-testid="stMultiSelect"] input,
-[data-testid="stTextArea"] textarea,
-[data-testid="stChatInput"] textarea {
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    background: transparent !important;
-    color: var(--yi-input-fg) !important;
-    -webkit-text-fill-color: var(--yi-input-fg) !important;
-    caret-color: var(--yi-input-fg) !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-}
 [data-testid="stSelectbox"] input,
 [data-testid="stSelectbox"] span,
 [data-testid="stSelectbox"] p,
@@ -296,60 +199,85 @@ html[data-theme="dark"] select {
 [data-testid="stMultiSelect"] input,
 [data-testid="stMultiSelect"] span,
 [data-testid="stMultiSelect"] div,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectboxVirtualDropdown"],
+[data-testid="stSelectboxVirtualDropdown"] * {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+    caret-color: #111111 !important;
+}
+[data-testid="stSelectbox"] > div,
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stTextInput"] > div > div {
+    background-color: #ffffff !important;
+}
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
 [data-testid="stDateInput"] input,
 [data-testid="stTimeInput"] input,
-[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] input,
+[data-testid="stTextArea"] textarea {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
 [data-testid="stSelectboxVirtualDropdown"],
-[data-testid="stSelectboxVirtualDropdown"] * {
-    color: var(--yi-input-fg) !important;
-    -webkit-text-fill-color: var(--yi-input-fg) !important;
-    caret-color: var(--yi-input-fg) !important;
-}
-@media (prefers-color-scheme: dark) {
-    html:not([data-theme="light"]) [data-testid="stSelectbox"] input,
-    html:not([data-theme="light"]) [data-testid="stSelectbox"] [data-baseweb="select"] span,
-    html:not([data-theme="light"]) [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
-    html:not([data-theme="light"]) [data-testid="stSelectbox"] p,
-    html:not([data-theme="light"]) [data-testid="stSelectbox"] div,
-    html:not([data-theme="light"]) [data-testid="stMultiSelect"] input,
-    html:not([data-theme="light"]) [data-testid="stMultiSelect"] span,
-    html:not([data-theme="light"]) [data-testid="stMultiSelect"] div,
-    html:not([data-theme="light"]) [data-testid="stTextInput"] input,
-    html:not([data-theme="light"]) [data-testid="stTextArea"] textarea,
-    html:not([data-theme="light"]) [data-testid="stSelectboxVirtualDropdown"],
-    html:not([data-theme="light"]) [data-testid="stSelectboxVirtualDropdown"] * {
-        color: #e6edf3 !important;
-        -webkit-text-fill-color: #e6edf3 !important;
-        caret-color: #e6edf3 !important;
-    }
-}
-[data-testid="stSelectbox"] svg,
-[data-testid="stDateInput"] svg,
-[data-testid="stTimeInput"] svg {
-    fill: var(--yi-muted) !important;
-    color: var(--yi-muted) !important;
-}
 [data-baseweb="menu"],
 [data-baseweb="popover"],
 [data-baseweb="menu"] li,
 ul[role="listbox"] li {
-    background-color: var(--yi-canvas) !important;
-    color: var(--yi-fg) !important;
-    -webkit-text-fill-color: var(--yi-fg) !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stDataFrame"],
+[data-testid="stDataFrame"] *,
+[data-testid="stDataEditor"],
+[data-testid="stDataEditor"] * {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploader"] span,
+[data-testid="stFileUploader"] p {
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
 }
 [data-testid="stTextArea"] textarea::placeholder,
 [data-testid="stTextInput"] input::placeholder,
-textarea::placeholder,
-input::placeholder {
-    color: var(--yi-muted) !important;
-    -webkit-text-fill-color: var(--yi-muted) !important;
+input::placeholder, textarea::placeholder {
+    color: #3d4a57 !important;
+    -webkit-text-fill-color: #3d4a57 !important;
     opacity: 1 !important;
 }
 [data-testid="InputInstructions"],
 [data-testid="InputInstructions"] * {
-    color: var(--yi-muted) !important;
+    color: #3d4a57 !important;
+}
+@media (prefers-color-scheme: dark) {
+    html [data-testid="stWidgetLabel"] *,
+    html [data-testid="stHeading"] *,
+    html [data-testid="stCaption"] *,
+    html [data-testid="stMarkdownContainer"] p,
+    html [data-testid="stMarkdownContainer"] span,
+    html [data-testid="stSelectbox"] input,
+    html [data-testid="stSelectbox"] span,
+    html [data-testid="stSelectbox"] div,
+    html [data-testid="stTextInput"] input,
+    html [data-testid="stTextArea"] textarea,
+    html h1, html h2, html h3, html h4, html label {
+        color: #111111 !important;
+        -webkit-text-fill-color: #111111 !important;
+    }
+    html button[kind="primary"] *,
+    html [data-testid="stDownloadButton"] button *,
+    html [data-testid="stFileUploader"] button * {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
 }
 div[class*="st-key-cal_today"] {
     display: none !important;
@@ -359,7 +287,6 @@ div[class*="st-key-cal_today"] {
     border-color: #1f4e79 !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
-    opacity: 1 !important;
 }
 [data-testid="stDownloadButton"] button p,
 [data-testid="stDownloadButton"] button span,
@@ -372,8 +299,8 @@ div[class*="st-key-cal_today"] {
     text-align: center !important;
     font-size: 1.7rem !important;
     font-weight: 700 !important;
-    color: var(--yi-fg) !important;
-    -webkit-text-fill-color: var(--yi-fg) !important;
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
     background: transparent !important;
     background-color: transparent !important;
     line-height: 2.4rem !important;
